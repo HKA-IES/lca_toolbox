@@ -24,10 +24,13 @@ license = {file = "LICENSE"}
 test = [
     "pytest",
     "pytest-cov",
-    "pytest-mock",]
+    "pytest-mock",
+    "odfpy",]
 
-[tool.setuptools.packages.find]
-include = ["lcatoolbox*"]
+[tool.setuptools]
+include-package-data = true
+package-dir = {"" = "src"}
+packages = ["lcatoolbox"]
 
 [project.urls]
 Homepage = "https://github.com/HKA-IES/lca_toolbox"

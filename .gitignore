@@ -1,2 +1,5 @@
 .idea/
 tests/__pycache__/
+lcatoolbox.egg-info/
+src/lcatoolbox/__pycache__/
+tests/test_contributions_tree_expected_dataframe.ods
