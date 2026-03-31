@@ -31,6 +31,39 @@ class TestContributions:
         foreground = bd.Database("foreground")
         foreground.register()
 
+        juice = foreground.new_node(name="juice",
+                                    unit="cubic meter",
+                                    location="GLO",
+                                    type=bd.labels.chimaera_node_default)
+        juice.save()
+        juice.new_edge(amount=0.001,
+                       unit=juice["unit"],
+                       input=juice,
+                       type=bd.labels.production_edge_default).save()
+
+        beverage_carton = bd.get_activity(name="beverage carton production, 1 L, for juice (ambient)",
+                                          location="RER")
+        orange = bd.get_activity(name="orange production, processing grade",
+                                 location="RoW")
+        water = bd.get_activity(name="Water, unspecified natural origin", categories=('natural resource', 'in water'))
+
+        juice.new_edge(input=beverage_carton,
+                             amount=1,
+                             unit=beverage_carton["unit"],
+                             type=bd.labels.consumption_edge_default,
+                             group="kiwi").save()
+        juice.new_edge(input=orange,
+                       amount=3,
+                       unit=orange["unit"],
+                       type=bd.labels.consumption_edge_default,
+                       group="kiwi").save()
+        juice.new_edge(input=water,
+                       amount=0.5,
+                       unit=water["unit"],
+                       type=bd.labels.biosphere_edge_default,
+                       group="kiwi").save()
+
+
         fruit_salad = foreground.new_node(name="fruit_salad",
                                              unit="unit",
                                              location="GLO",
@@ -45,7 +78,7 @@ class TestContributions:
         apple = bd.get_activity(name="apple production", location="IT")
         anchovy = bd.get_activity(name="anchovy, capture by wooden purse seiner and landing whole, fresh",
                                   location="PE")
-        orange = bd.get_activity(name="orange production, fresh grade", location="ES")
+        biowaste = bd.get_activity(name="market for biowaste, kitchen and garden waste", location="GLO")
 
         fruit_salad.new_edge(input=kiwi,
                              amount=0.125,
@@ -62,13 +95,20 @@ class TestContributions:
                              unit=anchovy["unit"],
                              type=bd.labels.consumption_edge_default,
                              group="anchovy").save()
-        # fruit_salad.new_edge(input=orange,
-        #                     amount=0.25,
-        #                     unit=orange["unit"],
-        #                     type=bd.labels.consumption_edge_default).save()
+        fruit_salad.new_edge(input=juice,
+                             amount=0.0001,
+                             unit=juice["unit"],
+                             type=bd.labels.consumption_edge_default,
+                             group=None).save()
+        fruit_salad.new_edge(input=biowaste,
+                             amount=-0.1,
+                             unit=biowaste["unit"],
+                             type=bd.labels.consumption_edge_default,
+                             group="waste").save()
 
         return fruit_salad
 
+    # TODO: test varying max_depth, what happens if no group is found, etc.
     def test_contributions_tree(self, fruit_salad):
         impact_category = ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)')
         expected_df = pd.read_excel("tests/test_contributions_tree_expected_dataframe.ods",

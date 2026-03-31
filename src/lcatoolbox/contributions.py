@@ -13,7 +13,7 @@ import pandas as pd
 def contributions_tree(activity: bd.backends.proxies.Activity,
                        amount: float,
                        impact_category: Tuple[str, str, str, str],
-                       max_depth: int):
+                       max_depth: int) -> pd.DataFrame:
     """
     [...]
 
@@ -43,7 +43,12 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
         demands = {}
 
         for exc in activity.technosphere():
-            demands[str(exc.input.id)] = {exc.input.id: 1}
+            if list(exc.input.production())[0].amount > 0:
+                demands[str(exc.input.id)] = {exc.input.id: 1}
+            else:
+                # Account for waste activities whose reference amount is negative.
+                demands[str(exc.input.id)] = {exc.input.id: -1}
+
             if max_depth > 0:
                 demands.update(generate_demands_from_exchanges(exc.input, max_depth-1))
         return demands
@@ -63,17 +68,22 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
                           amount: float,
                           depth: int,
                           max_depth: int) -> List[Dict[str, Any]]:
+        # Account for waste activities whose reference amount is negative.
+        production_amount = list(act.production())[0].amount
+        if production_amount < 0:
+            amount *= -1
+
         if amount == 0:
             return []
         contributions = []
-        # TODO: Think on how to properly handle waste processes (i.e. with negative amounts)
+
         if parent_act is None:
             contributions.append({"activity_name": act["name"],
                                        "activity_location": act["location"],
                                        "parent_name": None,
                                        "parent_location": None,
                                        "depth": depth,
-                                       "amount": abs(amount),
+                                       "amount": amount,
                                        "unit": act["unit"],
                                        "score": amount*lca.scores[impact_category, str(act.id)]})
         else:
@@ -82,14 +92,13 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
                                        "parent_name": parent_act["name"],
                                        "parent_location": parent_act["location"],
                                        "depth": depth,
-                                       "amount": abs(amount),
+                                       "amount": amount,
                                        "unit": act["unit"],
                                        "score": amount*lca.scores[impact_category, str(act.id)]})
 
         if depth < max_depth:
             for exc in act.technosphere():
-                contributions += get_contributions(act, exc.input, amount*exc.amount, depth+1, max_depth)
-
+                contributions += get_contributions(act, exc.input, amount*exc.amount/abs(production_amount), depth + 1, max_depth)
         return contributions
 
     contributions = get_contributions(None, activity, amount, 0, max_depth)
