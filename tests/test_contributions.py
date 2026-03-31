@@ -81,7 +81,7 @@ class TestContributions:
         biowaste = bd.get_activity(name="market for biowaste, kitchen and garden waste", location="GLO")
 
         fruit_salad.new_edge(input=kiwi,
-                             amount=0.125,
+                             amount=-0.125,
                              unit=kiwi["unit"],
                              type=bd.labels.consumption_edge_default,
                              group="kiwi").save()
@@ -130,5 +130,24 @@ class TestContributions:
                                       expected_df,
                                       check_like=True)
 
-    def test_grouped_contributions(self):
-        raise NotImplementedError()
+    def test_contributions_tree_max_depth(self, fruit_salad):
+        impact_category = ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)')
+        expected_df = pd.read_excel("tests/test_contributions_tree_expected_dataframe.ods",
+                                    sheet_name="DataFrame",
+                                    dtype={"amount": float})
+        expected_df = expected_df[expected_df["depth"] < 2]
+        actual_df = contributions_tree(activity=fruit_salad,
+                                       amount=1,
+                                       impact_category=impact_category,
+                                       max_depth=1)
+        actual_df.to_excel("tests/test_contributions_tree_actual_dataframe.ods")
+
+        # Do not care about row order
+        expected_df = expected_df.sort_values(by=['contribution'], ascending=False)
+        actual_df = actual_df.sort_values(by=['contribution'], ascending=False)
+        expected_df = expected_df.reset_index(drop=True)
+        actual_df = actual_df.reset_index(drop=True)
+
+        pd.testing.assert_frame_equal(actual_df,
+                                      expected_df,
+                                      check_like=True)
