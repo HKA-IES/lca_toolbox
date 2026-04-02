@@ -14,11 +14,11 @@ import numpy as np
 
 # import your own module
 
+# TODO: support providing arrays of parameters (for use with Saltelli sampling, for example)
 def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
                     impact_categories: List[Tuple[str, str, str, str]],
                     n_iterations: int,
-                    foreground_db_name: str = "foreground",
-                    n_jobs: int = 1) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+                    foreground_db_name: str = "foreground") -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # TODO: Handle n_jobs > 1
     background_activities = []
     def get_background_activities(act: bd.backends.proxies.Activity, foreground_db_name: str) -> List[bd.backends.proxies.Activity]:

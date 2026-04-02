@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
 
 # import built-in module
-import time
-import random
 
 # import third-party modules
-import bw2data as bd
-import pytest
 import pandas as pd
 import numpy as np
 
@@ -16,7 +12,8 @@ from setup_bw_project import *
 
 class TestGlobalSensitivityAnalysis:
 
-    def _generate_test_data(self, fruit_salad):
+    @staticmethod
+    def _generate_test_data(fruit_salad):
         foreground = bd.Database("foreground")
         big_fruit_salad = foreground.new_node(name="big_fruit_salad",
                                               unit="unit",

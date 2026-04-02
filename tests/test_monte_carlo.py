@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
 
 # import built-in module
-import time
 
 # import third-party modules
-import bw2data as bd
-import pytest
 import pandas as pd
 
 # import your own module
@@ -143,45 +140,6 @@ class TestMonteCarlo:
                                  (parameters_df["name"] ==
                                   list(parameters_df["name"].unique())[1])]
                 ["value"].item())
-
-    def test_run_monte_carlo_multiple_jobs(self, fruit_salad):
-        foreground = bd.Database("foreground")
-        big_fruit_salad = foreground.new_node(name="big_fruit_salad",
-                                              unit="unit",
-                                              location="GLO",
-                                              type=bd.labels.chimaera_node_default)
-        big_fruit_salad.save()
-        big_fruit_salad.new_edge(amount=1,
-                                 unit=big_fruit_salad["unit"],
-                                 input=big_fruit_salad,
-                                 type=bd.labels.production_edge_default).save()
-        big_fruit_salad.new_edge(amount=1.5,
-                                 unit=fruit_salad["unit"],
-                                 input=fruit_salad,
-                                 type=bd.labels.consumption_edge_default).save()
-
-
-        activities = [fruit_salad, big_fruit_salad]
-        impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
-                                      ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
-                             ('ecoinvent-3.12', 'EF v3.1', 'water use', 'user deprivation potential (deprivation-weighted water consumption)')]
-        n_iterations = 10
-
-        start_time = time.time()
-        _, _, _ = run_monte_carlo(activities=activities,
-                                               impact_categories=impact_categories,
-                                               n_iterations=n_iterations,
-                                  n_jobs=1,)
-        single_job_duration = time.time() - start_time
-
-        start_time = time.time()
-        _, _, _ = run_monte_carlo(activities=activities,
-                                               impact_categories=impact_categories,
-                                               n_iterations=n_iterations,
-                                  n_jobs=2,)
-        multiple_job_duration = time.time() - start_time
-
-        assert multiple_job_duration < (single_job_duration*1.5)
 
     def test_discernability_analysis(self):
         scores_act1_ic1 = [0, 1, 2, 3, 4]

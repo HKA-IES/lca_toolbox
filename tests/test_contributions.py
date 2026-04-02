@@ -3,8 +3,6 @@
 # import built-in module
 
 # import third-party modules
-import bw2data as bd
-import pytest
 import pandas as pd
 
 # import your own module

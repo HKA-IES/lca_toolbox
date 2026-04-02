@@ -3,12 +3,9 @@
 # import built-in module
 
 # import third-party modules
-import bw2data as bd
-import pytest
 
 # import your own module
 from lcatoolbox import get_impact_categories
-from setup_bw_project import *
 
 class TestMethods:
 
