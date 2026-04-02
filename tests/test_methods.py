@@ -8,18 +8,10 @@ import pytest
 
 # import your own module
 from lcatoolbox import get_impact_categories
+from setup_bw_project import *
 
-class TestContributions:
-    @pytest.fixture(scope="session", autouse=True)
-    def setup_brightway(self):
-        if "lca_toolbox_tests" not in bd.projects:
-            raise RuntimeError("Brightway project for tests has not been set-up. Run setup_bw_project.py.")
+class TestMethods:
 
-        bd.projects.set_current("lca_toolbox_tests")
-        if 'ecoinvent-3.12-cutoff' not in bd.databases:
-            raise RuntimeError("Database ecoinvent-3.12-cutoff is missing. Run setup_bw_project.py.")
-        if 'ecoinvent-3.12-biosphere' not in bd.databases:
-            raise RuntimeError("Database ecoinvent-3.12-biosphere is missing. Run setup_bw_project.py.")
 
     def test_get_impact_categories(self):
         expected_impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
@@ -49,4 +41,3 @@ class TestContributions:
                                       ('ecoinvent-3.12', 'EF v3.1', 'water use', 'user deprivation potential (deprivation-weighted water consumption)')]
         actual_impact_categories = get_impact_categories(method="EF v3.1")
         assert expected_impact_categories == actual_impact_categories
-        
