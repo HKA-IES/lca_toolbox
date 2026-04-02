@@ -8,7 +8,7 @@ import pytest
 import pandas as pd
 
 # import your own module
-from lcatoolbox import contributions_tree
+from lcatoolbox import contributions_tree, grouped_contributions
 
 class TestContributions:
     @pytest.fixture(scope="session", autouse=True)
@@ -51,17 +51,16 @@ class TestContributions:
                              amount=1,
                              unit=beverage_carton["unit"],
                              type=bd.labels.consumption_edge_default,
-                             group="kiwi").save()
+                             group="waste").save()
         juice.new_edge(input=orange,
                        amount=3,
                        unit=orange["unit"],
                        type=bd.labels.consumption_edge_default,
-                       group="kiwi").save()
+                       group="fruit").save()
         juice.new_edge(input=water,
                        amount=0.5,
                        unit=water["unit"],
-                       type=bd.labels.biosphere_edge_default,
-                       group="kiwi").save()
+                       type=bd.labels.biosphere_edge_default).save()
 
 
         fruit_salad = foreground.new_node(name="fruit_salad",
@@ -84,17 +83,17 @@ class TestContributions:
                              amount=-0.125,
                              unit=kiwi["unit"],
                              type=bd.labels.consumption_edge_default,
-                             group="kiwi").save()
+                             group="fruit").save()
         fruit_salad.new_edge(input=apple,
                              amount=0.5,
                              unit=apple["unit"],
                              type=bd.labels.consumption_edge_default,
-                             group="apple").save()
+                             group="fruit").save()
         fruit_salad.new_edge(input=anchovy,
                              amount=0,
                              unit=anchovy["unit"],
                              type=bd.labels.consumption_edge_default,
-                             group="anchovy").save()
+                             group="fish").save()
         fruit_salad.new_edge(input=juice,
                              amount=0.0001,
                              unit=juice["unit"],
@@ -108,7 +107,6 @@ class TestContributions:
 
         return fruit_salad
 
-    # TODO: test varying max_depth, what happens if no group is found, etc.
     def test_contributions_tree(self, fruit_salad):
         impact_category = ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)')
         expected_df = pd.read_excel("tests/test_contributions_tree_expected_dataframe.ods",
@@ -140,7 +138,7 @@ class TestContributions:
                                        amount=1,
                                        impact_category=impact_category,
                                        max_depth=1)
-        actual_df.to_excel("tests/test_contributions_tree_actual_dataframe.ods")
+        # actual_df.to_excel("tests/test_contributions_tree_actual_dataframe.ods")
 
         # Do not care about row order
         expected_df = expected_df.sort_values(by=['contribution'], ascending=False)
@@ -151,3 +149,31 @@ class TestContributions:
         pd.testing.assert_frame_equal(actual_df,
                                       expected_df,
                                       check_like=True)
+
+    def test_grouped_contributions(self, fruit_salad):
+        impact_category = ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)')
+        expected_df = pd.read_excel("tests/test_grouped_contributions_expected_dataframe.ods",
+                                    sheet_name="DataFrame",
+                                    dtype={"score": float})
+        actual_df = grouped_contributions(activity=fruit_salad,
+                                          amount=1,
+                                          impact_category=impact_category)
+        actual_df.to_excel("tests/test_grouped_contributions_actual_dataframe.ods")
+
+        # Do not care about row order
+        expected_df = expected_df.sort_values(by=['contribution'], ascending=False)
+        actual_df = actual_df.sort_values(by=['contribution'], ascending=False)
+        expected_df = expected_df.reset_index(drop=True)
+        actual_df = actual_df.reset_index(drop=True)
+
+        pd.testing.assert_frame_equal(actual_df,
+                                      expected_df,
+                                      check_like=True)
+
+    def test_grouped_contributions_group_not_found(self, fruit_salad):
+        impact_category = ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)')
+        with pytest.raises(RuntimeError):
+            _ = grouped_contributions(activity=fruit_salad,
+                                              amount=1,
+                                              impact_category=impact_category,
+                                              max_depth=0)
