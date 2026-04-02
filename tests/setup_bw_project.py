@@ -5,6 +5,8 @@
 # import third-party modules
 import bw2io as bi
 import bw2data as bd
+import stats_arrays
+from bw2data.parameters import ActivityParameter
 import pytest
 
 # import your own module
@@ -51,6 +53,7 @@ def fruit_salad():
 
     juice.new_edge(input=beverage_carton,
                    amount=1,
+                   formula="amount_beverage_carton",
                    unit=beverage_carton["unit"],
                    type=bd.labels.consumption_edge_default,
                    group="waste").save()
@@ -105,5 +108,16 @@ def fruit_salad():
                          unit=biowaste["unit"],
                          type=bd.labels.consumption_edge_default,
                          group="waste").save()
+
+    bd.parameters.new_project_parameters([{"name": "amount_beverage_carton",
+                                             "formula": "0.5*some_random_value",},
+                                          {"name": "some_random_value",
+                                           "amount": 2,
+                                           "uncertainty": stats_arrays.UncertaintyBase.from_dicts({"minimum": 1.5,
+                                                                                                   "maximum": 2.5,
+                                                                                                   "uncertainty_type": stats_arrays.UniformUncertainty.id,})},])
+
+    bd.parameters.add_exchanges_to_group("group", fruit_salad)
+    ActivityParameter.recalculate_exchanges("group")
 
     return fruit_salad
