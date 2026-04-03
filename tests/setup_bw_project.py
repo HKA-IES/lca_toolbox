@@ -25,9 +25,6 @@ def setup_brightway():
             system_model='cutoff',  # can be cutoff / apos / consequential / EN15804
         )
 
-
-@pytest.fixture
-def fruit_salad():
     try:
         del bd.databases["foreground"]
     except KeyError:
@@ -35,6 +32,10 @@ def fruit_salad():
     foreground = bd.Database("foreground")
     foreground.register()
 
+
+@pytest.fixture
+def fruit_salad():
+    foreground = bd.Database("foreground")
     juice = foreground.new_node(name="juice",
                                 unit="cubic meter",
                                 location="GLO",
