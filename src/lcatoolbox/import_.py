@@ -103,81 +103,6 @@ def import_foreground(file_path: str,
                          type=bd.labels.production_edge_default).save()
         new_activities.append(new_act)
 
-    # Add all exchanges
-    for ws in wb:
-        if ws.name[0:2] != "a_":
-            continue
-
-        act = bd.get_activity(name=ws["B1"],
-                                  location=ws["B3"],)
-
-        df = pd.read_excel(file_path,
-                       sheet_name=ws.name,
-                       skiprows=6)
-
-        for _, row in df.iterrows():
-            if row["Type"] == "technosphere":
-                exc_act = bd.get_activity(name=row["Activity"],
-                                      location=row["Location"],)
-                exc_type = bd.labels.consumption_edge_default
-            elif row["Type"] == "biosphere":
-                exc_act = bd.get_activity(name=row["Activity"],
-                                          categories=ast.literal_eval(row["Categories"]),)
-                exc_type = bd.labels.biosphere_edge_default
-
-            if row["Unit"] != exc_act["unit"]:
-                raise ValueError(f"In new activity {act}, the specified unit ({row["Unit"]}) for the exchange "
-                                 f"with activity {exc_act} does not match the activity's unit ({act["unit"]}).")
-
-            # Create parameters for the exchange amount
-            # Consist of an amount and a data quality component.
-            # Data quality is defined from pedigree matrix
-            # Amount is defined either from numerical value and uncertainty distribution OR formula
-            param_data_quality = {"name": f"exc_dq_{exc_act.id}_{act.id}",
-                                  "amount": 1,
-                                  "uncertainty": _uncertainty_from_pedigree_matrix(ast.literal_eval(row["Data Quality"])),}
-
-            uncertainty_map = {"Undefined": stats_arrays.UndefinedUncertainty.id,
-                               "No uncertainty": stats_arrays.NoUncertainty.id,
-                               "Lognormal": stats_arrays.LognormalUncertainty.id,
-                               "Normal": stats_arrays.NormalUncertainty.id,
-                               "Uniform": stats_arrays.UniformUncertainty.id,
-                               "Triangular": stats_arrays.TriangularUncertainty.id,
-                               "Bernoulli": stats_arrays.BernoulliUncertainty.id,
-                               "Discrete Uniform": stats_arrays.DiscreteUniform.id,
-                               "Weibull": stats_arrays.WeibullUncertainty.id,
-                               "Gamma": stats_arrays.GammaUncertainty.id,
-                               "Beta": stats_arrays.BetaUncertainty.id,
-                               "Generalized Extreme Value": stats_arrays.GeneralizedExtremeValueUncertainty.id,
-                               "Student's T": stats_arrays.StudentsTUncertainty.id,}
-
-            param_amount = {"name": f"exc_amount_{exc_act.id}_{act.id}",}
-            try:
-                param_amount["amount"] = float(row["Amount"])
-                param_amount["uncertainty"] = UncertaintyBase.from_dicts({"uncertainty_type": uncertainty_map[row["Uncertainty Type"]],
-                                                                          "loc": row["Uncertainty Location"],
-                                                                          "scale": row["Uncertainty Scale"],
-                                                                          "shape": row["Uncertainty Shape"],
-                                                                          "minimum": row["Uncertainty Minimum"],
-                                                                          "maximum": row["Uncertainty Maximum"],})
-            except ValueError:
-                param_amount["formula"] = row["Amount"]
-                param_amount["uncertainty"] = None
-
-            param_exc = {"name": f"exc_{exc_act.id}_{act.id}",
-                               "formula": f"{param_amount["name"]}*{param_data_quality["name"]}"}
-
-            act.new_exchange(amount=1,
-                                   formula=f"{param_exc["name"]}",
-                                    unit=row["Unit"],
-                                    input=exc_act,
-                                    type=exc_type,
-                                    group=row["Group"]).save()
-            bd.parameters.new_project_parameters([param_data_quality,
-                                                  param_amount,
-                                                  param_exc])
-        bd.parameters.add_exchanges_to_group("group", act)
-
     # Add parameters from sheets starting with p_
     for ws in wb:
         if ws.name[0:2] != "p_":
@@ -215,6 +140,92 @@ def import_foreground(file_path: str,
                 param["uncertainty"] = None
 
             bd.parameters.new_project_parameters([param,])
+
+    # Add all exchanges
+    for ws in wb:
+        if ws.name[0:2] != "a_":
+            continue
+
+        act = bd.get_activity(name=ws["B1"],
+                                  location=ws["B3"],)
+
+        df = pd.read_excel(file_path,
+                       sheet_name=ws.name,
+                       skiprows=6)
+
+        for _, row in df.iterrows():
+            if row["Type"] == "technosphere":
+                exc_act = bd.get_activity(name=row["Activity"],
+                                      location=row["Location"],)
+                exc_type = bd.labels.consumption_edge_default
+            elif row["Type"] == "biosphere":
+                exc_act = bd.get_activity(name=row["Activity"],
+                                          categories=ast.literal_eval(row["Categories"]),)
+                exc_type = bd.labels.biosphere_edge_default
+
+            if row["Unit"] != exc_act["unit"]:
+                raise ValueError(f"In new activity {act}, the specified unit ({row["Unit"]}) for the exchange "
+                                 f"with activity {exc_act} does not match the activity's unit ({act["unit"]}).")
+
+            if row["Group"] is np.nan:
+                exc_group = None
+            else:
+                exc_group = row["Group"]
+            # Create parameters for the exchange amount
+            # Consist of an amount and a data quality component.
+            # Data quality is defined from pedigree matrix
+            # Amount is defined either from numerical value and uncertainty distribution OR formula
+            param_data_quality = {"name": f"exc_dq_{exc_act.id}_{act.id}",
+                                  "amount": 1,
+                                  "uncertainty": _uncertainty_from_pedigree_matrix(ast.literal_eval(row["Data Quality"])),}
+
+            uncertainty_map = {"Undefined": stats_arrays.UndefinedUncertainty.id,
+                               "No uncertainty": stats_arrays.NoUncertainty.id,
+                               "Lognormal": stats_arrays.LognormalUncertainty.id,
+                               "Normal": stats_arrays.NormalUncertainty.id,
+                               "Uniform": stats_arrays.UniformUncertainty.id,
+                               "Triangular": stats_arrays.TriangularUncertainty.id,
+                               "Bernoulli": stats_arrays.BernoulliUncertainty.id,
+                               "Discrete Uniform": stats_arrays.DiscreteUniform.id,
+                               "Weibull": stats_arrays.WeibullUncertainty.id,
+                               "Gamma": stats_arrays.GammaUncertainty.id,
+                               "Beta": stats_arrays.BetaUncertainty.id,
+                               "Generalized Extreme Value": stats_arrays.GeneralizedExtremeValueUncertainty.id,
+                               "Student's T": stats_arrays.StudentsTUncertainty.id,}
+
+            param_amount = {"name": f"exc_amount_{exc_act.id}_{act.id}",}
+            try:
+                param_amount["amount"] = float(row["Amount"])
+                if uncertainty_map[row["Uncertainty Type"]] in [stats_arrays.UndefinedUncertainty.id,
+                                                                stats_arrays.NoUncertainty.id,]:
+                    loc = param_amount["amount"]
+                else:
+                    loc = row["Uncertainty Location"]
+                param_amount["uncertainty"] = UncertaintyBase.from_dicts({"uncertainty_type": uncertainty_map[row["Uncertainty Type"]],
+                                                                          "loc": loc,
+                                                                          "scale": row["Uncertainty Scale"],
+                                                                          "shape": row["Uncertainty Shape"],
+                                                                          "minimum": row["Uncertainty Minimum"],
+                                                                          "maximum": row["Uncertainty Maximum"],})
+            except ValueError:
+                param_amount["formula"] = row["Amount"]
+                param_amount["uncertainty"] = None
+
+            param_exc = {"name": f"exc_{exc_act.id}_{act.id}",
+                               "formula": f"{param_data_quality["name"]}*{param_amount["name"]}"}
+
+            act.new_exchange(amount=1,
+                                   formula=f"{param_exc["name"]}",
+                                    unit=row["Unit"],
+                                    input=exc_act,
+                                    type=exc_type,
+                                    group=exc_group).save()
+            bd.parameters.new_project_parameters([param_data_quality,
+                                                  param_amount,
+                                                  param_exc])
+        bd.parameters.add_exchanges_to_group("group", act)
+
+
 
     ActivityParameter.recalculate_exchanges("group")
     return new_activities

@@ -6,7 +6,7 @@
 import bw2io as bi
 import bw2data as bd
 import stats_arrays
-from bw2data.parameters import ActivityParameter
+from bw2data.parameters import ActivityParameter, ProjectParameter
 import pytest
 
 # import your own module
@@ -27,6 +27,8 @@ def setup_brightway():
 
     try:
         del bd.databases["foreground"]
+        ProjectParameter.drop_table(safe=True, drop_sequences=True)
+        ProjectParameter.create_table()
     except KeyError:
         pass
     foreground = bd.Database("foreground")
