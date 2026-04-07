@@ -98,7 +98,7 @@ class TestImport:
         uncertainty_dq = stats_arrays.UncertaintyBase.from_dicts(
             {"loc": 0.,
              "scale": 0.5198473117654913,
-             "untertainty_type": stats_arrays.LognormalUncertainty.id})
+             "uncertainty_type": stats_arrays.LognormalUncertainty.id})
 
         uncertainty_amount_apple = stats_arrays.UncertaintyBase.from_dicts(
             {"minimum": 0.25,

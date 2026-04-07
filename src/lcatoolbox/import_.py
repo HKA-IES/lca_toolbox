@@ -57,8 +57,9 @@ def _uncertainty_from_pedigree_matrix(pedigree: Tuple[int, int, int, int, int]) 
                           PEDIGREE_TECHNOLOGICAL[pedigree[4]]])
     lognormal_scale = np.sqrt(np.sum(np.log(pm_scores) ** 2)) / 2
 
-    uncertainty = stats_arrays.LognormalUncertainty.from_dicts({"loc": lognormal_location,
-                                                                "scale": lognormal_scale,})
+    uncertainty = stats_arrays.UncertaintyBase.from_dicts({"loc": lognormal_location,
+                                                           "scale": lognormal_scale,
+                                                           "uncertainty_type": stats_arrays.LognormalUncertainty.id})
     return uncertainty
 
 def import_foreground(file_path: str,
