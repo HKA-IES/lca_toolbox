@@ -20,6 +20,7 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
                     n_iterations: int,
                     foreground_db_name: str = "foreground") -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # TODO: Handle n_jobs > 1
+
     background_activities = []
     def get_background_activities(act: bd.backends.proxies.Activity, foreground_db_name: str) -> List[bd.backends.proxies.Activity]:
         background_activities = []
@@ -94,6 +95,8 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
                                "type": param_type,
                                "value": param.amount})
 
+        _print_monte_carlo_progress(i, n_iterations)
+
     scores_df = pd.DataFrame(scores)
     scores_background_df = pd.DataFrame(scores_background)
     parameters_df = pd.DataFrame(parameters)
@@ -118,3 +121,14 @@ def discernability_analysis(scores_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
         results[ic] = pd.DataFrame(array/n_iterations, index=activities, columns=activities)
 
     return results
+
+def _print_monte_carlo_progress(iteration: int, total: int):
+    # Adapted from https://stackoverflow.com/questions/3173320/text-progress-bar-in-terminal-with-block-characters
+    length = 50
+    fill = '█'
+    filledLength = int(length * (iteration+1) // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f'\rMonte Carlo: |{bar}| {iteration+1}/{total}')
+    # Print New Line on Complete
+    if iteration == total:
+        print()
