@@ -1,110 +1,153 @@
 # -*- coding: utf-8 -*-
 
 # import built-in module
+import pickle
 
 # import third-party modules
 import pandas as pd
 import numpy as np
+import bw2calc as bc
+import pytest
 
 # import your own module
-from lcatoolbox import global_sensitivity_analysis, run_monte_carlo
-from setup_bw_project import *
+from lcatoolbox import (global_sensitivity_analysis, run_monte_carlo, local_sensitivity_analysis, import_foreground,
+                        ScoresDict, ParametersDict, act_tuple)
+from setup_bw_project import setup_brightway, imported_activities
 
 class TestGlobalSensitivityAnalysis:
 
-    @staticmethod
-    def _generate_test_data(fruit_salad):
-        foreground = bd.Database("foreground")
-        big_fruit_salad = foreground.new_node(name="big_fruit_salad",
-                                              unit="unit",
-                                              location="GLO",
-                                              type=bd.labels.chimaera_node_default)
-        big_fruit_salad.save()
-        big_fruit_salad.new_edge(amount=1,
-                                 unit=big_fruit_salad["unit"],
-                                 input=big_fruit_salad,
-                                 type=bd.labels.production_edge_default).save()
-        big_fruit_salad.new_edge(amount=1.5,
-                                 unit=fruit_salad["unit"],
-                                 input=fruit_salad,
-                                 type=bd.labels.consumption_edge_default).save()
-
-        activities = [fruit_salad, big_fruit_salad]
+    def _generate_test_data(self, activities):
         impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
         n_iterations = 100
-        scores_df, scores_background_df, parameters_df = run_monte_carlo(activities=activities,
+        scores, scores_background, parameters = run_monte_carlo(activities=activities,
                                                                          impact_categories=impact_categories,
                                                                          n_iterations=n_iterations, )
-        scores_df.to_csv("tests/test_gsa_scores_df.csv", index=False)
-        scores_background_df.to_csv("tests/test_gsa_scores_background_df.csv", index=False)
-        parameters_df.to_csv("tests/test_gsa_parameters_df.csv", index=False)
+        with open("tests/test_gsa_scores.pickle", "wb") as f:
+            pickle.dump(scores, f)
+        with open("tests/test_gsa_scores_background.pickle", "wb") as f:
+            pickle.dump(scores_background, f)
+        with open("tests/test_gsa_parameters.pickle", "wb") as f:
+            pickle.dump(parameters, f)
 
     @pytest.fixture
-    def scores_df(self, fruit_salad) -> pd.DataFrame:
+    def scores(self, imported_activities) -> ScoresDict:
         try:
-            scores_df = pd.read_csv("tests/test_gsa_scores_df.csv")
+            with open("tests/test_gsa_scores.pickle", "rb") as f:
+                scores = pickle.load(f)
         except FileNotFoundError:
-            print("Test data test_gsa_scores_df.csv not found. Generating new test data, please wait...")
-            self._generate_test_data(fruit_salad)
-            scores_df = pd.read_csv("tests/test_gsa_scores_df.csv")
+            print("Test data test_gsa_scores.pickle not found. Generating new test data, please wait...")
+            self._generate_test_data(imported_activities)
+            with open("tests/test_gsa_scores.pickle", "rb") as f:
+                scores = pickle.load(f)
 
-        return scores_df
+        return scores
 
     @pytest.fixture
-    def scores_background_df(self, fruit_salad) -> pd.DataFrame:
+    def scores_background(self, imported_activities) -> ScoresDict:
         try:
-            scores_background_df = pd.read_csv("tests/test_gsa_scores_background_df.csv")
+            with open("tests/test_gsa_scores_background.pickle", "rb") as f:
+                scores_background = pickle.load(f)
         except FileNotFoundError:
-            print("Test data test_gsa_scores_background_df.csv not found. Generating new test data, please wait...")
-            self._generate_test_data(fruit_salad)
-            scores_background_df = pd.read_csv("tests/test_gsa_scores_background_df.csv")
+            print("Test data test_gsa_scores_background.pickle not found. Generating new test data, please wait...")
+            self._generate_test_data(imported_activities)
+            with open("tests/test_gsa_scores_background.pickle", "rb") as f:
+                scores_background = pickle.load(f)
 
-        return scores_background_df
+        return scores_background
 
     @pytest.fixture
-    def parameters_df(self, fruit_salad) -> pd.DataFrame:
+    def parameters(self, imported_activities) -> ParametersDict:
         try:
-            parameters_df = pd.read_csv("tests/test_gsa_parameters_df.csv")
+            with open("tests/test_gsa_parameters.pickle", "rb") as f:
+                parameters = pickle.load(f)
         except FileNotFoundError:
-            print("Test data test_gsa_parameters_df.csv not found. Generating new test data, please wait...")
-            self._generate_test_data(fruit_salad)
-            parameters_df = pd.read_csv("tests/test_gsa_parameters_df.csv")
+            print("Test data test_gsa_parameters.pickle not found. Generating new test data, please wait...")
+            self._generate_test_data(imported_activities)
+            with open("tests/test_gsa_parameters.pickle", "rb") as f:
+                parameters = pickle.load(f)
 
-        return parameters_df
+        return parameters
 
-    def test_global_sensitivity_analysis(self, scores_df, scores_background_df, parameters_df):
-        results_df = global_sensitivity_analysis(scores_df=scores_df,
-                                                 scores_background_df=scores_background_df,
-                                                 parameters_df=parameters_df,
+    def test_global_sensitivity_analysis(self, scores, scores_background, parameters):
+        results = global_sensitivity_analysis(scores, scores_background, parameters,
                                                  algorithm="main_effect_li_2016_alg_1",
                                                  n_bins=10)
+        activities = list(scores.keys())
+        background_activities = list(scores_background.keys())
+        impact_categories = list(scores[activities[0]].keys())
 
-        # Validation of results_df
-        activities = list(scores_df["activity"].unique())
-        impact_categories = list(scores_df.columns)[2:]
-        background = list(scores_background_df["activity"].unique())
-        parameters = list(parameters_df["name"].unique())
+        expected_df_columns = ["name", "type", "value"]
+        expected_df_column_dtypes = [pd.StringDtype(na_value=np.nan), pd.StringDtype(na_value=np.nan), float]
 
-        # Correct number of rows
-        assert len(results_df) == (len(background) + len(parameters)) * len(activities)
-
-        # Correct columns
-        expected_columns = ["activity", "type", "name"] + impact_categories
-        expected_column_dtypes = [object, object, object] + [float]*len(impact_categories)
-        assert list(results_df.columns) == expected_columns
-        # assert list(results_df.dtypes) == expected_column_dtypes
+        # Formatting of results
+        assert set(results.keys()) == set(activities)
+        for act_results in results.values():
+            assert set(act_results.keys()) == set(impact_categories)
+            for ic_results in act_results.values():
+                assert len(ic_results) == (len(background_activities) + len(parameters))
+                assert list(ic_results.columns) == expected_df_columns
+                assert list(ic_results.dtypes) == expected_df_column_dtypes
 
         # Values differ from one activity to the other
         with pytest.raises(AssertionError):
-            np.testing.assert_array_equal(np.array(results_df[results_df["activity"] == activities[0]][impact_categories[0]]),
-                                                 np.array(results_df[results_df["activity"] == activities[1]][
-                                                              impact_categories[0]]))
+            pd.testing.assert_frame_equal(results[activities[0]][impact_categories[0]],
+                                          results[activities[1]][impact_categories[0]])
 
         # Values differ from one impact category to the other
         with pytest.raises(AssertionError):
-            np.testing.assert_array_equal(np.array(results_df[results_df["activity"] == activities[0]][impact_categories[0]]),
-                                                 np.array(results_df[results_df["activity"] == activities[0]][
-                                                              impact_categories[1]]))
+            pd.testing.assert_frame_equal(results[activities[0]][impact_categories[0]],
+                                          results[activities[0]][impact_categories[1]])
+
+        # Values differ from one input to the other
+        assert (list(results[activities[0]][impact_categories[0]]["value"])[0]
+                != list(results[activities[0]][impact_categories[0]]["value"])[1])
+
+    def test_local_sensitivity_analysis(self, imported_activities):
+        activities = imported_activities
+        impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'water use',
+                              'user deprivation potential (deprivation-weighted water consumption)')]
+        parameters = ["some_random_value", "what_a_waste"]
+
+        # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
+        # Why? I don't know...
+        _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
+
+        results = local_sensitivity_analysis(activities,
+                                                impact_categories,
+                                                parameters)
+
+        # Check format
+        assert set(results.keys()) == set([act_tuple(act) for act in activities])
+        for act_results in results.values():
+            assert set(act_results.keys()) == set(impact_categories)
+            for ic_results in act_results.values():
+                assert set(ic_results.keys()) == set(parameters)
+                for param_results in ic_results.values():
+                    assert set(param_results.keys()) == {"sensitivity", "elasticity"}
+
+        # Sensitivity and elasticity differ
+        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["sensitivity"] !=
+                results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["elasticity"])
+
+        # Different values for different activities
+        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["sensitivity"] !=
+                results[act_tuple(activities[1])][impact_categories[0]][parameters[0]]["sensitivity"])
+        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["elasticity"] !=
+                results[act_tuple(activities[1])][impact_categories[0]][parameters[0]]["elasticity"])
+
+        # Different values for different impact categories
+        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["sensitivity"] !=
+                results[act_tuple(activities[0])][impact_categories[1]][parameters[0]]["sensitivity"])
+        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["elasticity"] !=
+                results[act_tuple(activities[0])][impact_categories[1]][parameters[0]]["elasticity"])
+
+        # Different values for different parameters
+        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["sensitivity"] !=
+                results[act_tuple(activities[0])][impact_categories[0]][parameters[1]]["sensitivity"])
+        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["elasticity"] !=
+                results[act_tuple(activities[0])][impact_categories[0]][parameters[1]]["elasticity"])

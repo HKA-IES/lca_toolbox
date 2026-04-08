@@ -10,6 +10,7 @@ from bw2data.parameters import ActivityParameter, ProjectParameter
 import pytest
 
 # import your own module
+from lcatoolbox import import_foreground
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -33,6 +34,11 @@ def setup_brightway():
         pass
     foreground = bd.Database("foreground")
     foreground.register()
+
+@pytest.fixture
+def imported_activities():
+    activities = import_foreground("tests/test_import_foreground.ods")
+    return activities
 
 
 @pytest.fixture
