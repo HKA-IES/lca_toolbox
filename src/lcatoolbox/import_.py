@@ -16,51 +16,19 @@ from stats_arrays import UncertaintyBase
 # import your own module
 
 
-def _uncertainty_from_pedigree_matrix(pedigree: Tuple[int, int, int, int, int]) -> Dict[str, float]:
-    # According to stats_array (https://stats-arrays.readthedocs.io/en/latest/), loc and scale contain the mean and standard deviation of the underlying normal distribution respectively.
-    # This aligns with Ecospold2DataExtractor.extract_uncertainty_dict which defined loc as log(mu) and scale as sqrt(varianceWithPedigreeUncertainty), where mu and varianceWithPedigreeUncertainty are from the ecoinvent database.
-    # However, the pedigree matrix factors are not given as variances.
-    # We calculate the scale as in pedigree-matrix.PedigreeMatrix
-    lognormal_location = np.log(1)
-
-    # A. Ciroth, S. Muller, B. Weidema, and P. Lesage, “Empirically based uncertainty factors for the pedigree matrix in ecoinvent,” Int J Life Cycle Assess, vol. 21, no. 9, pp. 1338–1348, Sep. 2016, doi: 10.1007/s11367-013-0670-5.
-    PEDIGREE_RELIABILITY = {1: 1.00,
-                            2: 1.54,
-                            3: 1.61,
-                            4: 1.69,
-                            5: 25.0}
-    PEDIGREE_COMPLETENESS = {1: 1.0,
-                             2: 1.03,
-                             3: 1.04,
-                             4: 1.08,
-                             5: 25.0}
-    PEDIGREE_TEMPORAL = {1: 1.0,
-                         2: 1.03,
-                         3: 1.10,
-                         4: 1.19,
-                         5: 1.29}
-    PEDIGREE_GEOGRAPHICAL = {1: 1.0,
-                             2: 1.04,
-                             3: 1.08,
-                             4: 1.11,
-                             5: 25.0}
-    PEDIGREE_TECHNOLOGICAL = {1: 1.0,
-                              2: 1.18,
-                              3: 1.65,
-                              4: 2.08,
-                              5: 2.8}
-
-    pm_scores = np.array([PEDIGREE_RELIABILITY[pedigree[0]],
-                          PEDIGREE_COMPLETENESS[pedigree[1]],
-                          PEDIGREE_TEMPORAL[pedigree[2]],
-                          PEDIGREE_GEOGRAPHICAL[pedigree[3]],
-                          PEDIGREE_TECHNOLOGICAL[pedigree[4]]])
-    lognormal_scale = np.sqrt(np.sum(np.log(pm_scores) ** 2)) / 2
-
-    uncertainty = stats_arrays.UncertaintyBase.from_dicts({"loc": lognormal_location,
-                                                           "scale": lognormal_scale,
-                                                           "uncertainty_type": stats_arrays.LognormalUncertainty.id})
-    return uncertainty
+UNCERTAINTY_TYPES_MAP = {"Undefined": stats_arrays.UndefinedUncertainty.id,
+                         "No uncertainty": stats_arrays.NoUncertainty.id,
+                         "Lognormal": stats_arrays.LognormalUncertainty.id,
+                         "Normal": stats_arrays.NormalUncertainty.id,
+                         "Uniform": stats_arrays.UniformUncertainty.id,
+                         "Triangular": stats_arrays.TriangularUncertainty.id,
+                         "Bernoulli": stats_arrays.BernoulliUncertainty.id,
+                         "Discrete Uniform": stats_arrays.DiscreteUniform.id,
+                         "Weibull": stats_arrays.WeibullUncertainty.id,
+                         "Gamma": stats_arrays.GammaUncertainty.id,
+                         "Beta": stats_arrays.BetaUncertainty.id,
+                         "Generalized Extreme Value": stats_arrays.GeneralizedExtremeValueUncertainty.id,
+                         "Student's T": stats_arrays.StudentsTUncertainty.id,}
 
 def import_foreground(file_path: str,
                       foreground_db_name: str = "foreground") -> List[bd.backends.proxies.Activity]:
@@ -113,25 +81,11 @@ def import_foreground(file_path: str,
                            sheet_name=ws.name)
 
         for _, row in df.iterrows():
-            uncertainty_map = {"Undefined": stats_arrays.UndefinedUncertainty.id,
-                               "No uncertainty": stats_arrays.NoUncertainty.id,
-                               "Lognormal": stats_arrays.LognormalUncertainty.id,
-                               "Normal": stats_arrays.NormalUncertainty.id,
-                               "Uniform": stats_arrays.UniformUncertainty.id,
-                               "Triangular": stats_arrays.TriangularUncertainty.id,
-                               "Bernoulli": stats_arrays.BernoulliUncertainty.id,
-                               "Discrete Uniform": stats_arrays.DiscreteUniform.id,
-                               "Weibull": stats_arrays.WeibullUncertainty.id,
-                               "Gamma": stats_arrays.GammaUncertainty.id,
-                               "Beta": stats_arrays.BetaUncertainty.id,
-                               "Generalized Extreme Value": stats_arrays.GeneralizedExtremeValueUncertainty.id,
-                               "Student's T": stats_arrays.StudentsTUncertainty.id,}
-
             param = {"name": row["Name"]}
             try:
                 param["amount"] = float(row["Value"])
                 param["nominal"] = param["amount"]
-                param["uncertainty"] = UncertaintyBase.from_dicts({"uncertainty_type": uncertainty_map[row["Uncertainty Type"]],
+                param["uncertainty"] = UncertaintyBase.from_dicts({"uncertainty_type": UNCERTAINTY_TYPES_MAP[row["Uncertainty Type"]],
                                                                           "loc": row["Uncertainty Location"],
                                                                           "scale": row["Uncertainty Scale"],
                                                                           "shape": row["Uncertainty Shape"],
@@ -183,30 +137,16 @@ def import_foreground(file_path: str,
                                   "nominal": 1,
                                   "uncertainty": _uncertainty_from_pedigree_matrix(ast.literal_eval(row["Data Quality"])),}
 
-            uncertainty_map = {"Undefined": stats_arrays.UndefinedUncertainty.id,
-                               "No uncertainty": stats_arrays.NoUncertainty.id,
-                               "Lognormal": stats_arrays.LognormalUncertainty.id,
-                               "Normal": stats_arrays.NormalUncertainty.id,
-                               "Uniform": stats_arrays.UniformUncertainty.id,
-                               "Triangular": stats_arrays.TriangularUncertainty.id,
-                               "Bernoulli": stats_arrays.BernoulliUncertainty.id,
-                               "Discrete Uniform": stats_arrays.DiscreteUniform.id,
-                               "Weibull": stats_arrays.WeibullUncertainty.id,
-                               "Gamma": stats_arrays.GammaUncertainty.id,
-                               "Beta": stats_arrays.BetaUncertainty.id,
-                               "Generalized Extreme Value": stats_arrays.GeneralizedExtremeValueUncertainty.id,
-                               "Student's T": stats_arrays.StudentsTUncertainty.id,}
-
             param_amount = {"name": f"exc_amount_{exc_act.id}_{act.id}",}
             try:
                 param_amount["amount"] = float(row["Amount"])
                 param_amount["nominal"] = param_amount["amount"]
-                if uncertainty_map[row["Uncertainty Type"]] in [stats_arrays.UndefinedUncertainty.id,
+                if UNCERTAINTY_TYPES_MAP[row["Uncertainty Type"]] in [stats_arrays.UndefinedUncertainty.id,
                                                                 stats_arrays.NoUncertainty.id,]:
                     loc = param_amount["amount"]
                 else:
                     loc = row["Uncertainty Location"]
-                param_amount["uncertainty"] = UncertaintyBase.from_dicts({"uncertainty_type": uncertainty_map[row["Uncertainty Type"]],
+                param_amount["uncertainty"] = UncertaintyBase.from_dicts({"uncertainty_type": UNCERTAINTY_TYPES_MAP[row["Uncertainty Type"]],
                                                                           "loc": loc,
                                                                           "scale": row["Uncertainty Scale"],
                                                                           "shape": row["Uncertainty Shape"],
@@ -236,3 +176,50 @@ def import_foreground(file_path: str,
     ActivityParameter.recalculate_exchanges("group")
 
     return new_activities
+
+
+def _uncertainty_from_pedigree_matrix(pedigree: Tuple[int, int, int, int, int]) -> Dict[str, float]:
+    # According to stats_array (https://stats-arrays.readthedocs.io/en/latest/), loc and scale contain the mean and standard deviation of the underlying normal distribution respectively.
+    # This aligns with Ecospold2DataExtractor.extract_uncertainty_dict which defined loc as log(mu) and scale as sqrt(varianceWithPedigreeUncertainty), where mu and varianceWithPedigreeUncertainty are from the ecoinvent database.
+    # However, the pedigree matrix factors are not given as variances.
+    # We calculate the scale as in pedigree-matrix.PedigreeMatrix
+    lognormal_location = np.log(1)
+
+    # A. Ciroth, S. Muller, B. Weidema, and P. Lesage, “Empirically based uncertainty factors for the pedigree matrix in ecoinvent,” Int J Life Cycle Assess, vol. 21, no. 9, pp. 1338–1348, Sep. 2016, doi: 10.1007/s11367-013-0670-5.
+    PEDIGREE_RELIABILITY = {1: 1.00,
+                            2: 1.54,
+                            3: 1.61,
+                            4: 1.69,
+                            5: 25.0}
+    PEDIGREE_COMPLETENESS = {1: 1.0,
+                             2: 1.03,
+                             3: 1.04,
+                             4: 1.08,
+                             5: 25.0}
+    PEDIGREE_TEMPORAL = {1: 1.0,
+                         2: 1.03,
+                         3: 1.10,
+                         4: 1.19,
+                         5: 1.29}
+    PEDIGREE_GEOGRAPHICAL = {1: 1.0,
+                             2: 1.04,
+                             3: 1.08,
+                             4: 1.11,
+                             5: 25.0}
+    PEDIGREE_TECHNOLOGICAL = {1: 1.0,
+                              2: 1.18,
+                              3: 1.65,
+                              4: 2.08,
+                              5: 2.8}
+
+    pm_scores = np.array([PEDIGREE_RELIABILITY[pedigree[0]],
+                          PEDIGREE_COMPLETENESS[pedigree[1]],
+                          PEDIGREE_TEMPORAL[pedigree[2]],
+                          PEDIGREE_GEOGRAPHICAL[pedigree[3]],
+                          PEDIGREE_TECHNOLOGICAL[pedigree[4]]])
+    lognormal_scale = np.sqrt(np.sum(np.log(pm_scores) ** 2)) / 2
+
+    uncertainty = stats_arrays.UncertaintyBase.from_dicts({"loc": lognormal_location,
+                                                           "scale": lognormal_scale,
+                                                           "uncertainty_type": stats_arrays.LognormalUncertainty.id})
+    return uncertainty

@@ -4,13 +4,14 @@
 
 # import third-party modules
 import bw2data as bd
+from bw2data.parameters import ProjectParameter
 import pytest
 import stats_arrays
 import numpy as np
 
 # import your own module
 from lcatoolbox import import_foreground
-from setup_bw_project import *
+from setup_bw_project import setup_brightway
 
 class TestImport:
     FILE_PATH = "tests/test_import_foreground.ods"
