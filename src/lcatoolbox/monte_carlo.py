@@ -5,89 +5,24 @@ from typing import Tuple, List, Dict
 
 # import third-party modules
 import bw2data as bd
-import stats_arrays
-from bw2data.parameters import ProjectParameter, ActivityParameter, Group
-import bw2calc as bc
 import pandas as pd
-import stats_arrays
 import numpy as np
 
 # import your own module
-
-
-def _calculate_scores(activities: List[bd.backends.proxies.Activity],
-                      impact_categories: List[Tuple[str, str, str, str]],
-                      parameters: Dict[str, float] = {},
-                      use_exchange_distributions: bool = False,
-                      use_parameters_distributions: bool = False) -> Tuple[List[Dict], List[Dict]]:
-    """
-    Compute scores for all activities in activities (demand=1) and all impact_categories.
-    All parameters are set to the values in parameters.
-
-    If parameters are not specified, all parameters are sampled from their distribution
-    (use_parameters_distributions=True) or set to their default values.
-
-    """
-    for param in ProjectParameter.select():
-        if param.formula is not None:
-            if param.name in parameters.keys():
-                warnings.warn(f"Parameter {param.name} is not set because it is defined by the formula "
-                              f"{param.formula}. Set the value of the parameters of the formula instead.")
-            continue
-
-        if param.name in parameters.keys():
-            new_value = parameters[param.name]
-        elif use_parameters_distributions:
-            mc_rng = stats_arrays.MCRandomNumberGenerator(param.data["uncertainty"])
-            new_value = mc_rng.next()[0]
-        else:
-            new_value = param.data["default"]
-
-        ProjectParameter.update(amount=new_value).where(ProjectParameter.name == param.name).execute()
-
-    Group.get(name="project").expire()
-    bd.parameters.recalculate()
-    ActivityParameter.recalculate_exchanges("group")
-
-    demands = {str(act.id): {act.id: 1} for act in activities}
-    method_config = {"impact_categories": impact_categories, }
-    data_objs = bd.get_multilca_data_objs(functional_units=demands,
-                                          method_config=method_config)
-
-    lca = bc.MultiLCA(demands=demands,
-                      method_config=method_config,
-                      data_objs=data_objs,
-                      use_distributions=use_exchange_distributions, )
-    lca.lci()
-    lca.lcia()
-
-    scores = []
-    parameters = []
-
-    for act in activities:
-        row = {"activity": (act["name"], act["location"])}
-        for ic in impact_categories:
-            row[ic] = lca.scores[ic, str(act.id)]
-        scores.append(row)
-
-    for param in ProjectParameter.select():
-        if param.formula is None:
-            param_type = "independent"
-        else:
-            param_type = "dependent"
-        parameters.append({"name": param.name,
-                           "type": param_type,
-                           "value": param.amount})
-
-    return scores, parameters
+from .compute import calculate_scores
+from .types import (ScoresDict, ParametersDict, ImpactCategoryTuple, concat_scores_dicts, concat_parameters_dicts,
+                    act_tuple)
 
 
 # TODO: support providing arrays of parameters (for use with Saltelli sampling, for example)
 def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
-                    impact_categories: List[Tuple[str, str, str, str]],
+                    impact_categories: List[ImpactCategoryTuple],
                     n_iterations: int,
-                    foreground_db_name: str = "foreground") -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+                    foreground_db_name: str = "foreground") -> Tuple[ScoresDict, ScoresDict, ParametersDict]:
     # TODO: Handle n_jobs > 1
+    n_iterations = int(n_iterations)
+    if n_iterations < 1:
+        raise ValueError("n_iterations must be greater than 0.")
 
     background_activities = []
     def get_background_activities(act: bd.backends.proxies.Activity, foreground_db_name: str) -> List[bd.backends.proxies.Activity]:
@@ -102,49 +37,46 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
         background_activities += get_background_activities(act, foreground_db_name)
     background_activities = list(set(background_activities))
 
-    scores = []
-    scores_background = []
-    parameters = []
-
-    for i in range(n_iterations):
-        scores_i, parameters_i = _calculate_scores(activities + background_activities,
+    scores, parameters = calculate_scores(activities + background_activities,
                                                    impact_categories,
                                                    use_exchange_distributions=True,
                                                    use_parameters_distributions=True)
-        for act in activities:
-            for row in scores_i:
-                if row["activity"] == (act["name"], act["location"]):
-                    scores.append({"iteration": i, **row})
-        for bact in background_activities:
-            for row in scores_i:
-                if row["activity"] == (bact["name"], bact["location"]):
-                    scores_background.append({"iteration": i, **row})
-        for row in parameters_i:
-            parameters.append({"iteration": i, **row})
+    _print_monte_carlo_progress(0, n_iterations)
+
+    for i in range(1, n_iterations):
+        scores_i, parameters_i = calculate_scores(activities + background_activities,
+                                                   impact_categories,
+                                                   use_exchange_distributions=True,
+                                                   use_parameters_distributions=True)
+
+        scores = concat_scores_dicts(scores, scores_i)
+        parameters = concat_parameters_dicts(parameters, parameters_i)
+
         _print_monte_carlo_progress(i, n_iterations)
 
-    scores_df = pd.DataFrame(scores)
-    scores_background_df = pd.DataFrame(scores_background)
-    parameters_df = pd.DataFrame(parameters)
-    return scores_df, scores_background_df, parameters_df
+    scores_background = {}
+    for bact in background_activities:
+        bact_tuple = act_tuple(bact)
+        scores_background[bact_tuple] = scores[bact_tuple]
+        del scores[bact_tuple]
 
-def discernability_analysis(scores_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
-    if len(scores_df["activity"].unique()) < 2:
-        raise ValueError("scores_df must contain scores for at least two activities.")
+    return scores, scores_background, parameters
 
-    impact_categories = list(scores_df.columns)[2:]
-    activities = list(scores_df["activity"].unique())
-    n_iterations = scores_df["iteration"].max() + 1
+def discernability_analysis(scores: ScoresDict) -> Dict[str, pd.DataFrame]:
+    if len(scores) < 2:
+        raise ValueError("scores must contain scores for at least two activities.")
+
+    impact_categories = list(list(scores.values())[0].keys())
+    activities = list(scores.keys())
+    n_iterations = len(scores[activities[0]][impact_categories[0]])
 
     results = {}
     for ic in impact_categories:
-        array = np.zeros((len(activities), len(activities)))
+        arr = np.zeros((len(activities), len(activities)))
         for i, act_i in enumerate(activities):
             for j, act_j in enumerate(activities):
-                act_i_values = np.array(scores_df[scores_df["activity"] == act_i][ic])
-                act_j_values = np.array(scores_df[scores_df["activity"] == act_j][ic])
-                array[i,j] = np.sum(act_i_values > act_j_values)
-        results[ic] = pd.DataFrame(array/n_iterations, index=activities, columns=activities)
+                arr[i, j] = np.sum(np.array(scores[act_i][ic]) > np.array(scores[act_j][ic]))
+        results[ic] = arr/n_iterations
 
     return results
 

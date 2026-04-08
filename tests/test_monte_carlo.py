@@ -3,16 +3,17 @@
 # import built-in module
 
 # import third-party modules
-import pandas as pd
+import numpy as np
 
 # import your own module
-from lcatoolbox import run_monte_carlo, discernability_analysis
+from lcatoolbox import run_monte_carlo, discernability_analysis, act_tuple
 from setup_bw_project import *
 
 class TestMonteCarlo:
 
 
     def test_run_monte_carlo(self, fruit_salad):
+        # TODO: move this setup part in setup_bw_project
         foreground = bd.Database("foreground")
         big_fruit_salad = foreground.new_node(name="big_fruit_salad",
                                               unit="unit",
@@ -30,161 +31,117 @@ class TestMonteCarlo:
 
 
         activities = [fruit_salad, big_fruit_salad]
+        background_activities = [bd.get_activity(name="beverage carton production, 1 L, for juice (ambient)",
+                                                 location="RER"),
+                                 bd.get_activity(name="orange production, processing grade",
+                                                 location="RoW"),
+                                 bd.get_activity(name="kiwi production", location="GLO"),
+                                 bd.get_activity(name="apple production", location="IT"),
+                                 bd.get_activity(name="anchovy, capture by wooden purse seiner and landing whole, fresh",
+                                                 location="PE"),
+                                 bd.get_activity(name="market for biowaste, kitchen and garden waste", location="GLO")
+                                 ]
+
         impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
                                       ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'water use', 'user deprivation potential (deprivation-weighted water consumption)')]
         n_iterations = 5
-        scores_df, scores_background_df, parameters_df = run_monte_carlo(activities=activities,
+        scores, scores_background, parameters = run_monte_carlo(activities=activities,
                                                impact_categories=impact_categories,
                                                n_iterations=n_iterations,)
 
-        # Validation of scores_df
-        # Correct number of rows
-        assert len(scores_df) == len(activities) * n_iterations
-
-        # Correct columns
-        expected_columns = ["iteration", "activity", impact_categories[0], impact_categories[1], impact_categories[2], ]
-        expected_column_dtypes = [int, object, float, float, float]
-        assert list(scores_df.columns) == expected_columns
-        assert list(scores_df.dtypes) == expected_column_dtypes
+        # Validation of scores
+        assert set(scores.keys()) == set([act_tuple(act) for act in activities])
+        for act_scores in scores.values():
+            assert set(act_scores.keys()) == set(impact_categories)
+            for ic_scores in act_scores.values():
+                assert len(ic_scores) == n_iterations
 
         # Values differ from one iteration to the other
-        assert (scores_df[(scores_df["iteration"] == 0) &
-                          (scores_df["activity"] == (activities[0]["name"], activities[0]["location"]))]
-                [impact_categories[0]].item()
-                != scores_df[(scores_df["iteration"] == 1) &
-                             (scores_df["activity"] == (activities[0]["name"], activities[0]["location"]))]
-                [impact_categories[0]].item() )
+        assert (scores[act_tuple(activities[0])][impact_categories[0]][0]
+                != scores[act_tuple(activities[0])][impact_categories[0]][1])
 
         # Values differ from one activity to the other
-        assert (scores_df[(scores_df["iteration"] == 0) &
-                          (scores_df["activity"] == (activities[0]["name"], activities[0]["location"]))]
-                [impact_categories[0]].item()
-                != scores_df[(scores_df["iteration"] == 0) &
-                             (scores_df["activity"] == (activities[1]["name"], activities[1]["location"]))]
-                [impact_categories[0]].item() )
+        assert (scores[act_tuple(activities[0])][impact_categories[0]][0]
+                != scores[act_tuple(activities[1])][impact_categories[0]][0])
 
         # Values differ from one impact category to the other
-        assert (scores_df[(scores_df["iteration"] == 0) &
-                          (scores_df["activity"] == (activities[0]["name"], activities[0]["location"]))]
-                [impact_categories[0]].item()
-                != scores_df[(scores_df["iteration"] == 0) &
-                             (scores_df["activity"] == (activities[0]["name"], activities[0]["location"]))]
-                [impact_categories[1]].item() )
+        assert (scores[act_tuple(activities[0])][impact_categories[0]][0]
+                != scores[act_tuple(activities[0])][impact_categories[1]][0])
 
-        # Validation of scores_background_df
-        # Correct number of rows
-        n_background_activities = 6
-        assert len(scores_background_df) == n_background_activities * n_iterations
-
-        # Correct columns
-        expected_columns = ["iteration", "activity", impact_categories[0], impact_categories[1], impact_categories[2], ]
-        expected_column_dtypes = [int, object, float, float, float]
-        assert list(scores_background_df.columns) == expected_columns
-        assert list(scores_background_df.dtypes) == expected_column_dtypes
+        # Validation of scores_background
+        assert (set(scores_background.keys())
+                == set([act_tuple(bact) for bact in background_activities]))
+        for act_scores_background in scores_background.values():
+            assert set(act_scores_background.keys()) == set(impact_categories)
+            for ic_scores_background in act_scores_background.values():
+                assert len(ic_scores_background) == n_iterations
 
         # Values differ from one iteration to the other
-        assert (scores_background_df[(scores_background_df["iteration"] == 0) &
-                          (scores_background_df["activity"] == list(scores_background_df["activity"].unique())[0])]
-                [impact_categories[0]].item()
-                != scores_background_df[(scores_background_df["iteration"] == 1) &
-                          (scores_background_df["activity"] == list(scores_background_df["activity"].unique())[0])]
-                [impact_categories[0]].item() )
+        assert (scores_background[act_tuple(background_activities[0])][impact_categories[0]][0]
+                != scores_background[act_tuple(background_activities[0])][impact_categories[0]][1])
 
-        # Values differ from one background to the other
-        assert (scores_background_df[(scores_background_df["iteration"] == 0) &
-                          (scores_background_df["activity"] == list(scores_background_df["activity"].unique())[0])]
-                [impact_categories[0]].item()
-                != scores_background_df[(scores_background_df["iteration"] == 0) &
-                             (scores_background_df["activity"] == list(scores_background_df["activity"].unique())[1])]
-                [impact_categories[0]].item())
+        # Values differ from one activity to the other
+        assert (scores_background[act_tuple(background_activities[0])][impact_categories[0]][0]
+                != scores_background[act_tuple(background_activities[1])][impact_categories[0]][0])
 
         # Values differ from one impact category to the other
-        assert (scores_background_df[(scores_background_df["iteration"] == 0) &
-                          (scores_background_df["activity"] == list(scores_background_df["activity"].unique())[0])]
-                [impact_categories[0]].item()
-                != scores_background_df[(scores_df["iteration"] == 0) &
-                             (scores_background_df["activity"] == list(scores_background_df["activity"].unique())[0])]
-                [impact_categories[1]].item() )
+        assert (scores_background[act_tuple(background_activities[0])][impact_categories[0]][0]
+                != scores_background[act_tuple(background_activities[0])][impact_categories[1]][0])
 
-        # Validation of parameters_df
-        # Correct number of rows
-        n_parameters = 2
-        assert len(parameters_df) == n_parameters * n_iterations
-
-        # Correct columns
-        expected_columns = ["iteration", "name", "type", "value"]
-        expected_column_dtypes = [int, pd.StringDtype, pd.StringDtype, float]
-        assert list(parameters_df.columns) == expected_columns
-        # assert list(parameters_df.dtypes) == expected_column_dtypes
+        # Validation of parameters
+        assert len(parameters) == len(ProjectParameter.select())
+        for param_data in parameters.values():
+            _ = param_data["type"]
+            assert len(param_data["values"]) == n_iterations
 
         # Correct values
-        assert set(parameters_df["name"].unique()) == {"some_random_value", "amount_beverage_carton"}
+        assert set(parameters.keys()) == {"some_random_value", "amount_beverage_carton"}
 
         # Values differ from one iteration to the other
-        assert (parameters_df[(parameters_df["iteration"] == 0) &
-                                     (parameters_df["name"] ==
-                                      list(parameters_df["name"].unique())[0])]
-                ["value"].item()
-                != parameters_df[(parameters_df["iteration"] == 1) &
-                                        (parameters_df["name"] ==
-                                         list(parameters_df["name"].unique())[0])]
-                ["value"].item())
+        assert (parameters["some_random_value"]["values"][0]
+                != parameters["some_random_value"]["values"][1])
 
         # Values differ from one parameter to the other
-        assert (parameters_df[(parameters_df["iteration"] == 0) &
-                              (parameters_df["name"] ==
-                               list(parameters_df["name"].unique())[0])]
-                ["value"].item()
-                != parameters_df[(parameters_df["iteration"] == 0) &
-                                 (parameters_df["name"] ==
-                                  list(parameters_df["name"].unique())[1])]
-                ["value"].item())
+        assert (parameters["some_random_value"]["values"][0]
+                != parameters["amount_beverage_carton"]["values"][0])
 
     def test_discernability_analysis(self):
-        scores_act1_ic1 = [0, 1, 2, 3, 4]
-        scores_act1_ic2 = [0, 1, 2, 3, 4]
-        scores_act2_ic1 = [4, 3, 2, 1, 0]
-        scores_act2_ic2 = [4, 3, 2, 1, 0]
-        scores_act3_ic1 = [1, 2, 3, 4, 5]
-        scores_act3_ic2 = [1, 2, 3, 4, 5]
+        scores_act0_ic0 = [0, 1, 2, 3, 4]
+        scores_act0_ic1 = [0, 1, 2, 3, 4]
+        scores_act1_ic0 = [4, 3, 2, 1, 0]
+        scores_act1_ic1 = [4, 3, 2, 1, 0]
+        scores_act2_ic0 = [1, 2, 3, 4, 5]
+        scores_act2_ic1 = [1, 2, 3, 4, 5]
 
-        n_iterations = len(scores_act1_ic1)
-        activities = [("act1", "loc1"),
-                      ("act2", "loc2"),
-                      ("act3", "loc3")]
+        activities = [("act0", "loc0"),
+                      ("act1", "loc1"),
+                      ("act2", "loc2")]
+        impact_categories = [("ic0_0", "ic0_1", "ic0_2", "ic0_3"),
+                             ("ic1_0", "ic1_1", "ic1_2", "ic1_3"),]
 
-        scores = []
-        for i in range(n_iterations):
-            scores.append({"iteration": i,
-                           "activity": activities[0],
-                           ("m1", "ic1"): scores_act1_ic1[i],
-                           ("m1", "ic2"): scores_act1_ic2[i],})
-            scores.append({"iteration": i,
-                           "activity": activities[1],
-                           ("m1", "ic1"): scores_act2_ic1[i],
-                           ("m1", "ic2"): scores_act2_ic2[i], })
-            scores.append({"iteration": i,
-                           "activity": activities[2],
-                           ("m1", "ic1"): scores_act3_ic1[i],
-                           ("m1", "ic2"): scores_act3_ic2[i], })
-        scores_df = pd.DataFrame(scores)
+        scores = {}
+        scores[activities[0]] = {}
+        scores[activities[0]][impact_categories[0]] = scores_act0_ic0
+        scores[activities[0]][impact_categories[1]] = scores_act0_ic1
+        scores[activities[1]] = {}
+        scores[activities[1]][impact_categories[0]] = scores_act1_ic0
+        scores[activities[1]][impact_categories[1]] = scores_act1_ic1
+        scores[activities[2]] = {}
+        scores[activities[2]][impact_categories[0]] = scores_act2_ic0
+        scores[activities[2]][impact_categories[1]] = scores_act2_ic1
 
-        expected = {}
-        expected[("m1", "ic1")] = pd.DataFrame([[0/5, 2/5, 0/5],
-                                                [2/5, 0/5, 2/5],
-                                                [5/5, 3/5, 0/5]],
-                                               index=activities,
-                                               columns=activities)
-        expected[("m1", "ic2")] = pd.DataFrame([[0/5, 2/5, 0/5],
-                                                [2/5, 0/5, 2/5],
-                                                [5/5, 3/5, 0/5]],
-                                               index=activities,
-                                               columns=activities)
+        expected_results = {}
+        expected_results[impact_categories[0]] = np.array([[0/5, 2/5, 0/5],
+                                                           [2/5, 0/5, 2/5],
+                                                           [5/5, 3/5, 0/5]])
+        expected_results[impact_categories[1]] = np.array([[0/5, 2/5, 0/5],
+                                                           [2/5, 0/5, 2/5],
+                                                           [5/5, 3/5, 0/5]])
 
-        actual = discernability_analysis(scores_df)
+        actual_results = discernability_analysis(scores)
 
-        assert set(actual.keys()) == set(expected.keys())
-        for key in expected.keys():
-            pd.testing.assert_frame_equal(actual[key],
-                                      expected[key])
+        assert set(actual_results.keys()) == set(expected_results.keys())
+        for actual_arr, expected_arr in zip(actual_results.values(),
+                                            expected_results.values()):
+            np.testing.assert_array_equal(actual_arr, expected_arr)

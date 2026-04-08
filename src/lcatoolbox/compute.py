@@ -1,0 +1,87 @@
+# -*- coding: utf-8 -*-
+
+# import built-in module
+from typing import Tuple, List, Dict
+
+# import third-party modules
+import bw2data as bd
+from bw2data.parameters import ProjectParameter, ActivityParameter, Group
+import bw2calc as bc
+import stats_arrays
+
+# import your own module
+from .types import ScoresDict, ParametersDict, ImpactCategoryTuple
+
+
+def calculate_scores(activities: List[bd.backends.proxies.Activity],
+                      impact_categories: List[ImpactCategoryTuple],
+                      parameters: Dict[str, float] = {},
+                      use_exchange_distributions: bool = False,
+                      use_parameters_distributions: bool = False) -> Tuple[ScoresDict, ParametersDict]:
+    """
+    Compute scores for all activities in activities (demand=1) and all impact_categories.
+    All parameters are set to the values in parameters.
+
+    If parameters are not specified, all parameters are sampled from their distribution
+    (use_parameters_distributions=True) or set to their default values.
+
+    """
+    project_parameters = list(ProjectParameter.select())
+
+    # Specified parameters are invalid if 1) parameter does not exist or 2) parameter is defined by a formula
+    for param in parameters.keys():
+        if param not in [proj_param.name for proj_param in project_parameters]:
+            raise ValueError(f"Parameter {param} does not exist in the model.")
+    for proj_param in project_parameters:
+        if proj_param.formula is not None and proj_param.name in parameters.keys():
+            raise ValueError(f"Parameter {proj_param.name} is not set because it is defined by the formula "
+                              f"{proj_param.formula}. Set the value of the parameters of the formula instead.")
+
+    for proj_param in project_parameters:
+        if proj_param.formula is not None:
+            continue
+
+        if proj_param.name in parameters.keys():
+            new_value = parameters[proj_param.name]
+        elif use_parameters_distributions:
+            mc_rng = stats_arrays.MCRandomNumberGenerator(proj_param.data["uncertainty"])
+            new_value = mc_rng.next()[0]
+        else:
+            new_value = proj_param.data["nominal"]
+
+
+        ProjectParameter.update(amount=new_value).where(ProjectParameter.name == proj_param.name).execute()
+
+    Group.get(name="project").expire()
+    bd.parameters.recalculate()
+    ActivityParameter.recalculate_exchanges("group")
+
+    demands = {str(act.id): {act.id: 1} for act in activities}
+    method_config = {"impact_categories": impact_categories, }
+    data_objs = bd.get_multilca_data_objs(functional_units=demands,
+                                          method_config=method_config)
+
+    lca = bc.MultiLCA(demands=demands,
+                      method_config=method_config,
+                      data_objs=data_objs,
+                      use_distributions=use_exchange_distributions, )
+    lca.lci()
+    lca.lcia()
+
+    scores = {}
+    parameters = {}
+
+    for act in activities:
+        scores[(act["name"], act["location"])] = {}
+        for ic in impact_categories:
+            scores[(act["name"], act["location"])][ic] = [lca.scores[ic, str(act.id)]]
+
+    for param in ProjectParameter.select():
+        if param.formula is None:
+            param_type = "independent"
+        else:
+            param_type = "dependent"
+        parameters[param.name] = {"type": param_type,
+                                  "values": [param.amount]}
+
+    return scores, parameters
