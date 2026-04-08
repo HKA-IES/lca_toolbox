@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # import built-in module
-from typing import Tuple, List, Dict, Any
+from typing import List, Dict, Any
 
 # import third-party modules
 import bw2data as bd
@@ -9,10 +9,11 @@ import bw2calc as bc
 import pandas as pd
 
 # import your own module
+from .types import ImpactCategoryTuple
 
 def contributions_tree(activity: bd.backends.proxies.Activity,
                        amount: float,
-                       impact_category: Tuple[str, str, str, str],
+                       impact_category: ImpactCategoryTuple,
                        max_depth: int) -> pd.DataFrame:
     """
     [...]
@@ -23,7 +24,7 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
         Activity for which the contributions should be analyzed.
     amount: float
         Amount of the activity to consider.
-    impact_category: Tuple[str, str, str, str]
+    impact_category: ImpactCategoryTuple
         Brightway tuple of the impact category to consider.
     max_depth: int
         Maximum depth to consider. Must be an integer higher than 0. max_depth=0 considers only the provided activity,
@@ -110,7 +111,7 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
 
 def grouped_contributions(activity: bd.backends.proxies.Activity,
                        amount: float,
-                       impact_category: Tuple[str, str, str, str],
+                       impact_category: ImpactCategoryTuple,
                        max_depth: int) -> pd.DataFrame:
     """
     [...]
@@ -121,7 +122,7 @@ def grouped_contributions(activity: bd.backends.proxies.Activity,
         Activity for which the contributions should be analyzed.
     amount: float
         Amount of the activity to consider.
-    impact_category: Tuple[str, str, str, str]
+    impact_category: ImpactCategoryTuple
         Brightway tuple of the impact category to consider.
     max_depth: int
         Maximum depth to consider. Must be an integer higher than 0. max_depth=0 considers only the provided activity,

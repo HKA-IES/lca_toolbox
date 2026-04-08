@@ -4,10 +4,11 @@
 
 # import third-party modules
 import pandas as pd
+import pytest
 
 # import your own module
 from lcatoolbox import contributions_tree, grouped_contributions
-from setup_bw_project import *
+from setup_bw_project import setup_brightway, fruit_salad
 
 class TestContributions:
 
