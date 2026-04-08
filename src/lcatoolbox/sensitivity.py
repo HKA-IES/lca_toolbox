@@ -19,10 +19,9 @@ def global_sensitivity_analysis(scores: ScoresDict,
                                 algorithm: str,
                                 n_bins: int,
                                 ignore_dependent: bool = True) -> Dict[ActivityTuple, Dict[ImpactCategoryTuple, pd.DataFrame]]:
-    alg_map = {"main_effect_li_2016_alg_1": li_2016_main_effect_alg_1,
-                     "main_effect_li_2016_alg_2": li_2016_main_effect_alg_2}
-
-    if algorithm not in list(alg_map.keys()):
+    try:
+        alg_fn = GSA_ALGORITHMS[algorithm]
+    except KeyError:
         raise ValueError(f"algorithm {algorithm} is not supported.")
 
     activities = list(scores.keys())
@@ -38,13 +37,13 @@ def global_sensitivity_analysis(scores: ScoresDict,
             y = scores[act][ic]
             for bact in background_activities:
                 x = scores_background[bact][ic]
-                s = alg_map[algorithm](np.array(x), np.array(y), n_bins)
+                s = alg_fn(np.array(x), np.array(y), n_bins)
                 raw_df.append({"name": str(bact),
                                "type": "background",
                                "value": s})
             for param in parameters.keys():
                 x = parameters[param]["values"]
-                s = alg_map[algorithm](np.array(x), np.array(y), n_bins)
+                s = alg_fn(np.array(x), np.array(y), n_bins)
                 raw_df.append({"name": param,
                                "type": "parameter",
                                "value": s})
@@ -52,9 +51,9 @@ def global_sensitivity_analysis(scores: ScoresDict,
 
     return results
 
-def li_2016_main_effect_alg_1(x, y, M):
+def _main_effect_li_2016_alg_1(x: np.ndarray, y: np.ndarray, M: int):
     """
-    Algorithm 1 from [1]
+    Estimator for the main effect proposed in [1] (algorithm 1).
 
     [1] C. Li and S. Mahadevan, “An efficient modularized sample-based method to estimate the first-order Sobol׳ index,” Reliability Engineering & System Safety, vol. 153, pp. 110–121, Sep. 2016, doi: 10.1016/j.ress.2016.04.012.
 
@@ -73,9 +72,9 @@ def li_2016_main_effect_alg_1(x, y, M):
     S = np.var(E_y, ddof=1) / np.var(y[:M*intervals_length], ddof=1)
     return S
 
-def li_2016_main_effect_alg_2(x, y, M):
+def _main_effect_li_2016_alg_2(x: np.ndarray, y: np.ndarray, M: int):
     """
-    Algorithm 2 from [1]
+    Estimator for the main effect proposed in [1] (algorithm 2).
 
     [1] C. Li and S. Mahadevan, “An efficient modularized sample-based method to estimate the first-order Sobol׳ index,” Reliability Engineering & System Safety, vol. 153, pp. 110–121, Sep. 2016, doi: 10.1016/j.ress.2016.04.012.
 
@@ -93,6 +92,9 @@ def li_2016_main_effect_alg_2(x, y, M):
     V_y = [np.var(y[x_arg_sorted[m * intervals_length:(m+1)*intervals_length]], ddof=1) for m in range(M)]
     S = 1 - (np.mean(V_y) / np.var(y[:M*intervals_length], ddof=1))
     return S
+
+GSA_ALGORITHMS = {"main_effect_li_2016_alg_1": _main_effect_li_2016_alg_1,
+                  "main_effect_li_2016_alg_2": _main_effect_li_2016_alg_2}
 
 def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
                                impact_categories: List[ImpactCategoryTuple],
