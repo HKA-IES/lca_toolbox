@@ -6,7 +6,7 @@
 
 # import your own module
 from lcatoolbox import get_impact_categories
-from setup_bw_project import *
+from setup_bw_project import setup_brightway
 
 class TestMethods:
 
