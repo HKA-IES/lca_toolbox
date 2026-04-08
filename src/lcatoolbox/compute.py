@@ -55,9 +55,9 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
     if len(params_to_update) > 0:
         ProjectParameter.bulk_update(params_to_update, fields=[ProjectParameter.amount])
 
-    Group.get(name="project").expire()
-    bd.parameters.recalculate()
-    ActivityParameter.recalculate_exchanges("group")
+        Group.get(name="project").expire()
+        bd.parameters.recalculate()
+        ActivityParameter.recalculate_exchanges("group")
 
     demands = {str(act.id): {act.id: 1} for act in activities}
     method_config = {"impact_categories": impact_categories, }

@@ -4,6 +4,7 @@
 
 # import third-party modules
 import bw2calc as bc
+import bw2data as bd
 from bw2data.parameters import ProjectParameter
 import pytest
 
@@ -161,3 +162,13 @@ class TestCompute:
             _, _ = calculate_scores(activities,
                                                             impact_categories,
                                                             parameters={"amount_beverage_carton": 2})
+
+    def test_calculate_scores_no_parameters(self):
+        # Ensure that everything runs smoothly when no ProjectParameters have been defined.
+        activities = [bd.get_activity(name="apple production", location="IT")]
+        impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'water use',
+                              'user deprivation potential (deprivation-weighted water consumption)')]
+        scores, parameters = calculate_scores(activities,
+                                              impact_categories, )

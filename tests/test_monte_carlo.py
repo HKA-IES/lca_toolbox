@@ -96,6 +96,19 @@ class TestMonteCarlo:
         assert (parameters["some_random_value"]["values"][0]
                 != parameters["amount_beverage_carton"]["values"][0])
 
+    def test_run_monte_carlo_no_parameters(self):
+        # Ensure that everything runs smoothly when no ProjectParameters have been defined.
+        activities = [bd.get_activity(name="apple production", location="IT")]
+        impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'water use',
+                              'user deprivation potential (deprivation-weighted water consumption)')]
+        n_iterations = 5
+        _, _, _ = run_monte_carlo(activities=activities,
+                                  impact_categories=impact_categories,
+                                  n_iterations=n_iterations, )
+
+
     def test_discernability_analysis(self):
         scores_act0_ic0 = [0, 1, 2, 3, 4]
         scores_act0_ic1 = [0, 1, 2, 3, 4]

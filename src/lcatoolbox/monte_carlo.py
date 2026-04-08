@@ -41,13 +41,15 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
 
     # We instantiate one sampler for all parameters to save time on initiating the sampler and generating samples.
     project_params = [p for p in ProjectParameter.select() if p.formula is None]
-    uncertainty_params = np.array([proj_param.data["uncertainty"][0] for proj_param in project_params])
-    param_sampler = stats_arrays.MCRandomNumberGenerator(uncertainty_params,
+    param_values = {}
+    if len(project_params) > 0:
+        uncertainty_params = np.array([proj_param.data["uncertainty"][0] for proj_param in project_params])
+        param_sampler = stats_arrays.MCRandomNumberGenerator(uncertainty_params,
                                                          maximum_iterations=n_iterations)
-    params_array = param_sampler.generate(n_iterations)
+        params_array = param_sampler.generate(n_iterations)
+        param_values = {param.name: value for param, value in zip(project_params, params_array[:, 0])}
 
     # first iteration to generate scores, parameters
-    param_values = {param.name: value for param, value in zip(project_params, params_array[:,0])}
     scores, parameters = calculate_scores(activities + background_activities,
                                           impact_categories,
                                           param_values,
@@ -57,7 +59,8 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
 
     # subsequent iterations
     for i in range(1, n_iterations):
-        param_values = {param.name: value for param, value in zip(project_params, params_array[:,i])}
+        if len(project_params) > 0:
+            param_values = {param.name: value for param, value in zip(project_params, params_array[:, i])}
         scores_i, parameters_i = calculate_scores(activities + background_activities,
                                                   impact_categories,
                                                   param_values,
