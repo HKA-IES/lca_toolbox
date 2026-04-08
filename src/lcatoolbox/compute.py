@@ -37,6 +37,7 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
             raise ValueError(f"Parameter {proj_param.name} is not set because it is defined by the formula "
                               f"{proj_param.formula}. Set the value of the parameters of the formula instead.")
 
+    params_to_update = []
     for proj_param in project_parameters:
         if proj_param.formula is not None:
             continue
@@ -49,8 +50,9 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
         else:
             new_value = proj_param.data["nominal"]
 
-
-        ProjectParameter.update(amount=new_value).where(ProjectParameter.name == proj_param.name).execute()
+        params_to_update.append(proj_param)
+        proj_param.amount = new_value
+    ProjectParameter.bulk_update(params_to_update, fields=[ProjectParameter.amount])
 
     Group.get(name="project").expire()
     bd.parameters.recalculate()
