@@ -7,6 +7,8 @@ from typing import Tuple, List, Dict
 import bw2data as bd
 import pandas as pd
 import numpy as np
+from bw2data.parameters import ProjectParameter
+import stats_arrays
 
 # import your own module
 from .compute import calculate_scores
@@ -37,17 +39,30 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
         background_activities += get_background_activities(act, foreground_db_name)
     background_activities = list(set(background_activities))
 
+    # We instantiate one sampler for all parameters to save time on initiating the sampler and generating samples.
+    project_params = [p for p in ProjectParameter.select() if p.formula is None]
+    uncertainty_params = np.array([proj_param.data["uncertainty"][0] for proj_param in project_params])
+    param_sampler = stats_arrays.MCRandomNumberGenerator(uncertainty_params,
+                                                         maximum_iterations=n_iterations)
+    params_array = param_sampler.generate(n_iterations)
+
+    # first iteration to generate scores, parameters
+    param_values = {param.name: value for param, value in zip(project_params, params_array[:,0])}
     scores, parameters = calculate_scores(activities + background_activities,
-                                                   impact_categories,
-                                                   use_exchange_distributions=True,
-                                                   use_parameters_distributions=True)
+                                          impact_categories,
+                                          param_values,
+                                          use_exchange_distributions=True,
+                                          use_parameters_distributions=True)
     _print_monte_carlo_progress(0, n_iterations)
 
+    # subsequent iterations
     for i in range(1, n_iterations):
+        param_values = {param.name: value for param, value in zip(project_params, params_array[:,i])}
         scores_i, parameters_i = calculate_scores(activities + background_activities,
-                                                   impact_categories,
-                                                   use_exchange_distributions=True,
-                                                   use_parameters_distributions=True)
+                                                  impact_categories,
+                                                  param_values,
+                                                  use_exchange_distributions=True,
+                                                  use_parameters_distributions=True)
 
         scores = concat_scores_dicts(scores, scores_i)
         parameters = concat_parameters_dicts(parameters, parameters_i)

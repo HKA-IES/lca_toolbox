@@ -52,7 +52,8 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
 
         params_to_update.append(proj_param)
         proj_param.amount = new_value
-    ProjectParameter.bulk_update(params_to_update, fields=[ProjectParameter.amount])
+    if len(params_to_update) > 0:
+        ProjectParameter.bulk_update(params_to_update, fields=[ProjectParameter.amount])
 
     Group.get(name="project").expire()
     bd.parameters.recalculate()
