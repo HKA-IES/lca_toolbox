@@ -4,33 +4,18 @@
 
 # import third-party modules
 import numpy as np
+import bw2data as bd
+from bw2data.parameters import ProjectParameter
 
 # import your own module
 from lcatoolbox import run_monte_carlo, discernability_analysis, act_tuple
-from setup_bw_project import *
+from setup_bw_project import imported_activities, setup_brightway
 
 class TestMonteCarlo:
 
 
-    def test_run_monte_carlo(self, fruit_salad):
-        # TODO: move this setup part in setup_bw_project
-        foreground = bd.Database("foreground")
-        big_fruit_salad = foreground.new_node(name="big_fruit_salad",
-                                              unit="unit",
-                                              location="GLO",
-                                              type=bd.labels.chimaera_node_default)
-        big_fruit_salad.save()
-        big_fruit_salad.new_edge(amount=1,
-                                 unit=big_fruit_salad["unit"],
-                                 input=big_fruit_salad,
-                                 type=bd.labels.production_edge_default).save()
-        big_fruit_salad.new_edge(amount=1.5,
-                                 unit=fruit_salad["unit"],
-                                 input=fruit_salad,
-                                 type=bd.labels.consumption_edge_default).save()
-
-
-        activities = [fruit_salad, big_fruit_salad]
+    def test_run_monte_carlo(self, imported_activities):
+        activities = imported_activities
         background_activities = [bd.get_activity(name="beverage carton production, 1 L, for juice (ambient)",
                                                  location="RER"),
                                  bd.get_activity(name="orange production, processing grade",
@@ -91,12 +76,17 @@ class TestMonteCarlo:
 
         # Validation of parameters
         assert len(parameters) == len(ProjectParameter.select())
-        for param_data in parameters.values():
-            _ = param_data["type"]
-            assert len(param_data["values"]) == n_iterations
+        for param in ProjectParameter.select():
+            assert param.name in list(parameters.keys())
+            if param.formula is not None:
+                assert parameters[param.name]["type"] == "dependent"
+            else:
+                assert parameters[param.name]["type"] == "independent"
+
+            assert len(parameters[param.name]["values"]) == n_iterations
 
         # Correct values
-        assert set(parameters.keys()) == {"some_random_value", "amount_beverage_carton"}
+        assert set(parameters.keys()) == {param.name for param in ProjectParameter.select()}
 
         # Values differ from one iteration to the other
         assert (parameters["some_random_value"]["values"][0]

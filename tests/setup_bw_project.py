@@ -37,7 +37,7 @@ def setup_brightway():
 
 @pytest.fixture
 def imported_activities():
-    activities = import_foreground("tests/test_import_foreground.ods")
+    activities = import_foreground("test_import_foreground.ods")
     return activities
 
 

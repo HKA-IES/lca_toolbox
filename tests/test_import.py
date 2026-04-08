@@ -14,10 +14,10 @@ from lcatoolbox import import_foreground
 from setup_bw_project import setup_brightway
 
 class TestImport:
-    FILE_PATH = "tests/test_import_foreground.ods"
+
 
     def test_import_foreground(self):
-        activities = import_foreground(self.FILE_PATH)
+        activities = import_foreground("test_import_foreground.ods")
 
         fruit_salad = bd.get_activity(name="fruit_salad", location="DE")
         juice = bd.get_activity(name="juice", location="GLO")
@@ -154,9 +154,6 @@ class TestImport:
                                  "amount": 0.1,
                                  "uncertainty": uncertainty_amount_juice, }]
 
-        uncertainty_amount_biowaste = stats_arrays.UncertaintyBase.from_dicts(
-            {"loc": -0.1,
-             "uncertainty_type": stats_arrays.NoUncertainty.id})
         expected_parameters += [{"name": f"exc_{biowaste.id}_{fruit_salad.id}",
                                  "formula": f"exc_dq_{biowaste.id}_{fruit_salad.id}*"
                                             f"exc_amount_{biowaste.id}_{fruit_salad.id}", },
@@ -164,8 +161,7 @@ class TestImport:
                                  "amount": 1.,
                                  "uncertainty": uncertainty_dq, },
                                 {"name": f"exc_amount_{biowaste.id}_{fruit_salad.id}",
-                                 "amount": -0.1,
-                                 "uncertainty": uncertainty_amount_biowaste, }]
+                                 "formula": "-what_a_waste"}]
 
         expected_parameters += [{"name": f"exc_{container.id}_{juice.id}",
                                  "formula": f"exc_dq_{container.id}_{juice.id}*"
@@ -211,6 +207,12 @@ class TestImport:
                                          "uncertainty_type": stats_arrays.UniformUncertainty.id})})
         expected_parameters.append({"name": "amount_beverage_carton",
                                     "formula": "0.5*some_random_value",})
+        expected_parameters.append({"name": "what_a_waste",
+                                    "amount": 0.1,
+                                    "uncertainty": stats_arrays.UncertaintyBase.from_dicts(
+                                        {"loc": 0.1,
+                                         "scale": 0.02,
+                                         "uncertainty_type": stats_arrays.NormalUncertainty.id})})
 
         actual_parameters = {param.name: param.dict for param in ProjectParameter.select()}
         assert len(actual_parameters) == len(expected_parameters)

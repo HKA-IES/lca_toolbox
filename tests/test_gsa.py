@@ -25,22 +25,22 @@ class TestGlobalSensitivityAnalysis:
         scores, scores_background, parameters = run_monte_carlo(activities=activities,
                                                                          impact_categories=impact_categories,
                                                                          n_iterations=n_iterations, )
-        with open("tests/test_gsa_scores.pickle", "wb") as f:
+        with open("test_gsa_scores.pickle", "wb") as f:
             pickle.dump(scores, f)
-        with open("tests/test_gsa_scores_background.pickle", "wb") as f:
+        with open("test_gsa_scores_background.pickle", "wb") as f:
             pickle.dump(scores_background, f)
-        with open("tests/test_gsa_parameters.pickle", "wb") as f:
+        with open("test_gsa_parameters.pickle", "wb") as f:
             pickle.dump(parameters, f)
 
     @pytest.fixture
     def scores(self, imported_activities) -> ScoresDict:
         try:
-            with open("tests/test_gsa_scores.pickle", "rb") as f:
+            with open("test_gsa_scores.pickle", "rb") as f:
                 scores = pickle.load(f)
         except FileNotFoundError:
             print("Test data test_gsa_scores.pickle not found. Generating new test data, please wait...")
             self._generate_test_data(imported_activities)
-            with open("tests/test_gsa_scores.pickle", "rb") as f:
+            with open("test_gsa_scores.pickle", "rb") as f:
                 scores = pickle.load(f)
 
         return scores
@@ -48,12 +48,12 @@ class TestGlobalSensitivityAnalysis:
     @pytest.fixture
     def scores_background(self, imported_activities) -> ScoresDict:
         try:
-            with open("tests/test_gsa_scores_background.pickle", "rb") as f:
+            with open("test_gsa_scores_background.pickle", "rb") as f:
                 scores_background = pickle.load(f)
         except FileNotFoundError:
             print("Test data test_gsa_scores_background.pickle not found. Generating new test data, please wait...")
             self._generate_test_data(imported_activities)
-            with open("tests/test_gsa_scores_background.pickle", "rb") as f:
+            with open("test_gsa_scores_background.pickle", "rb") as f:
                 scores_background = pickle.load(f)
 
         return scores_background
@@ -61,12 +61,12 @@ class TestGlobalSensitivityAnalysis:
     @pytest.fixture
     def parameters(self, imported_activities) -> ParametersDict:
         try:
-            with open("tests/test_gsa_parameters.pickle", "rb") as f:
+            with open("test_gsa_parameters.pickle", "rb") as f:
                 parameters = pickle.load(f)
         except FileNotFoundError:
             print("Test data test_gsa_parameters.pickle not found. Generating new test data, please wait...")
             self._generate_test_data(imported_activities)
-            with open("tests/test_gsa_parameters.pickle", "rb") as f:
+            with open("test_gsa_parameters.pickle", "rb") as f:
                 parameters = pickle.load(f)
 
         return parameters

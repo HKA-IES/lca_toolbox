@@ -8,15 +8,14 @@ from bw2data.parameters import ProjectParameter
 import pytest
 
 # import your own module
-from lcatoolbox import calculate_scores, import_foreground, act_tuple
-from setup_bw_project import setup_brightway
+from lcatoolbox import calculate_scores, act_tuple
+from setup_bw_project import setup_brightway, imported_activities
 
 class TestCompute:
-    # TODO: Use "manual" test setup instead of using import_foreground?!
-    FILE_PATH = "tests/test_import_foreground.ods"
 
-    def test_calculate_scores(self):
-        activities = import_foreground(self.FILE_PATH)
+
+    def test_calculate_scores(self, imported_activities):
+        activities = imported_activities
 
         impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
@@ -55,8 +54,8 @@ class TestCompute:
         assert scores == scores_repeat
         assert parameters == parameters_repeat
 
-    def test_calculate_scores_use_exchange_distributions(self):
-        activities = import_foreground(self.FILE_PATH)
+    def test_calculate_scores_use_exchange_distributions(self, imported_activities):
+        activities = imported_activities
 
         impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
@@ -79,8 +78,8 @@ class TestCompute:
         # Parameters are the same from one iteration to the other
         assert parameters_1 == parameters_2
 
-    def test_calculate_scores_use_parameters_distributions(self):
-        activities = import_foreground(self.FILE_PATH)
+    def test_calculate_scores_use_parameters_distributions(self, imported_activities):
+        activities = imported_activities
 
         impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
@@ -103,8 +102,8 @@ class TestCompute:
         # Parameters differ from one iteration to the other
         assert parameters_1 != parameters_2
 
-    def test_calculate_scores_set_parameters(self):
-        activities = import_foreground(self.FILE_PATH)
+    def test_calculate_scores_set_parameters(self, imported_activities):
+        activities = imported_activities
 
         impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
@@ -131,8 +130,8 @@ class TestCompute:
         # Parameters differ from one iteration to the other
         assert parameters_1 != parameters_2
 
-    def test_calculate_scores_set_parameters_do_not_exist(self):
-        activities = import_foreground(self.FILE_PATH)
+    def test_calculate_scores_set_parameters_do_not_exist(self, imported_activities):
+        activities = imported_activities
 
         impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
@@ -147,8 +146,8 @@ class TestCompute:
                                                             impact_categories,
                                                             parameters={"bad_parameter": 2})
 
-    def test_calculate_scores_set_parameters_dependent_parameter(self):
-        activities = import_foreground(self.FILE_PATH)
+    def test_calculate_scores_set_parameters_dependent_parameter(self, imported_activities):
+        activities = imported_activities
 
         impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
