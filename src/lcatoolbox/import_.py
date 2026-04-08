@@ -130,6 +130,7 @@ def import_foreground(file_path: str,
             param = {"name": row["Name"]}
             try:
                 param["amount"] = float(row["Value"])
+                param["nominal"] = param["amount"]
                 param["uncertainty"] = UncertaintyBase.from_dicts({"uncertainty_type": uncertainty_map[row["Uncertainty Type"]],
                                                                           "loc": row["Uncertainty Location"],
                                                                           "scale": row["Uncertainty Scale"],
@@ -139,6 +140,7 @@ def import_foreground(file_path: str,
             except ValueError:
                 param["formula"] = row["Value"]
                 param["uncertainty"] = None
+                param["nominal"] = None
 
             bd.parameters.new_project_parameters([param,])
 
@@ -178,6 +180,7 @@ def import_foreground(file_path: str,
             # Amount is defined either from numerical value and uncertainty distribution OR formula
             param_data_quality = {"name": f"exc_dq_{exc_act.id}_{act.id}",
                                   "amount": 1,
+                                  "nominal": 1,
                                   "uncertainty": _uncertainty_from_pedigree_matrix(ast.literal_eval(row["Data Quality"])),}
 
             uncertainty_map = {"Undefined": stats_arrays.UndefinedUncertainty.id,
@@ -197,6 +200,7 @@ def import_foreground(file_path: str,
             param_amount = {"name": f"exc_amount_{exc_act.id}_{act.id}",}
             try:
                 param_amount["amount"] = float(row["Amount"])
+                param_amount["nominal"] = param_amount["amount"]
                 if uncertainty_map[row["Uncertainty Type"]] in [stats_arrays.UndefinedUncertainty.id,
                                                                 stats_arrays.NoUncertainty.id,]:
                     loc = param_amount["amount"]
@@ -211,6 +215,7 @@ def import_foreground(file_path: str,
             except ValueError:
                 param_amount["formula"] = row["Amount"]
                 param_amount["uncertainty"] = None
+                param_amount["nominal"] = None
 
             param_exc = {"name": f"exc_{exc_act.id}_{act.id}",
                                "formula": f"{param_data_quality["name"]}*{param_amount["name"]}"}
@@ -229,4 +234,5 @@ def import_foreground(file_path: str,
 
 
     ActivityParameter.recalculate_exchanges("group")
+
     return new_activities

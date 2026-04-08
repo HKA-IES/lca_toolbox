@@ -12,7 +12,7 @@ import pytest
 # import your own module
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def setup_brightway():
     bd.projects.set_current("lca_toolbox_tests")
     if 'ecoinvent-3.12-cutoff' in bd.databases:
