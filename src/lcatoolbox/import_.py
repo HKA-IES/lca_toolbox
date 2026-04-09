@@ -3,6 +3,7 @@
 # import built-in module
 from typing import Tuple, List, Dict
 import ast
+import itertools
 
 # import third-party modules
 import bw2data as bd
@@ -31,6 +32,7 @@ UNCERTAINTY_TYPES_MAP = {"Undefined": stats_arrays.UndefinedUncertainty.id,
                          "Student's T": stats_arrays.StudentsTUncertainty.id,}
 
 def import_foreground(file_path: str,
+                      data_quality_system: str,
                       foreground_db_name: str = "foreground") -> List[bd.backends.proxies.Activity]:
     foreground_db = bd.Database(foreground_db_name)
     foreground_db.register()
@@ -122,7 +124,7 @@ def import_foreground(file_path: str,
 
             if row["Unit"] != exc_act["unit"]:
                 raise ValueError(f"In new activity {act}, the specified unit ({row["Unit"]}) for the exchange "
-                                 f"with activity {exc_act} does not match the activity's unit ({act["unit"]}).")
+                                 f"with activity {exc_act} does not match the activity's unit ({exc_act["unit"]}).")
 
             if row["Group"] is np.nan:
                 exc_group = None
@@ -132,10 +134,11 @@ def import_foreground(file_path: str,
             # Consist of an amount and a data quality component.
             # Data quality is defined from pedigree matrix
             # Amount is defined either from numerical value and uncertainty distribution OR formula
+            dq_tuple = tuple(int(val) for val in row["Data Quality"].strip("()").split(";"))
             param_data_quality = {"name": f"exc_dq_{exc_act.id}_{act.id}",
                                   "amount": 1,
                                   "nominal": 1,
-                                  "uncertainty": _uncertainty_from_pedigree_matrix(ast.literal_eval(row["Data Quality"])),}
+                                  "uncertainty": _uncertainty_from_pedigree_matrix(dq_tuple, data_quality_system),}
 
             param_amount = {"name": f"exc_amount_{exc_act.id}_{act.id}",}
             try:
@@ -177,49 +180,89 @@ def import_foreground(file_path: str,
 
     return new_activities
 
+def copy_ecoinvent_activity(activity: bd.backends.proxies.Activity,
+                      foreground_db_name: str = "foreground") -> bd.backends.proxies.Activity:
+    foreground_db = bd.Database(foreground_db_name)
 
-def _uncertainty_from_pedigree_matrix(pedigree: Tuple[int, int, int, int, int]) -> Dict[str, float]:
+    new_act_data = {key: value for key, value in activity.items()
+                    if key not in ["database", "id", "code"]}
+    new_act = foreground_db.new_node(**new_act_data)
+    new_act.save()
+
+    for exc_prod in activity.production():
+        new_act.new_edge(amount=exc_prod.amount,
+                         unit=exc_prod.unit,
+                         input=new_act,
+                         type=bd.labels.production_edge_default).save()
+
+    for exc in itertools.chain(activity.technosphere(), activity.biosphere()):
+        dq_tuple = (exc["pedigree"]["reliability"],
+                    exc["pedigree"]["completeness"],
+                    exc["pedigree"]["temporal correlation"],
+                    exc["pedigree"]["geographical correlation"],
+                    exc["pedigree"]["further technological correlation"],)
+        data_quality_uncertainty = _uncertainty_from_pedigree_matrix(dq_tuple)
+        param_data_quality = {"name": f"exc_dq_{exc.input.id}_{new_act.id}",
+                              "amount": 1.0,
+                              "nominal": 1.0,
+                              "uncertainty": data_quality_uncertainty, }
+        amount_uncertainty = UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.LognormalUncertainty.id,
+                                                                          "loc": exc["loc"],
+                                                                          "scale": exc["scale without pedigree"],})
+        param_amount = {"name": f"exc_amount_{exc.input.id}_{new_act.id}",
+                        "amount": exc.amount,
+                        "nominal": exc.amount,
+                        "uncertainty": amount_uncertainty, }
+        param_exc = {"name": f"exc_{exc.input.id}_{new_act.id}",
+                     "formula": f"{param_data_quality["name"]}*{param_amount["name"]}"}
+        new_act.new_edge(amount=1,
+                         formula=param_exc["name"],
+                         unit=exc.unit,
+                         input=exc.input,
+                         type=exc["type"]).save()
+        bd.parameters.new_project_parameters([param_data_quality,
+                                              param_amount,
+                                              param_exc])
+
+    bd.parameters.add_exchanges_to_group("group", new_act)
+    ActivityParameter.recalculate_exchanges("group")
+    return new_act
+
+
+def _uncertainty_from_pedigree_matrix(pedigree: Tuple[int, int, int, int, int],
+                                      data_quality_system: str = "ecoinvent3") -> Dict[str, float]:
+    """
+    data_quality_system one of "ecoinvent3" (https://support.ecoinvent.org/uncertainties) or "ciroth2016" (factors from [1] with n.a. set to 25 like in openLCA).
+
+    [1] A. Ciroth, S. Muller, B. Weidema, and P. Lesage, “Empirically based uncertainty factors for the pedigree matrix in ecoinvent,” Int J Life Cycle Assess, vol. 21, no. 9, pp. 1338–1348, Sep. 2016, doi: 10.1007/s11367-013-0670-5.
+    """
     # According to stats_array (https://stats-arrays.readthedocs.io/en/latest/), loc and scale contain the mean and standard deviation of the underlying normal distribution respectively.
     # This aligns with Ecospold2DataExtractor.extract_uncertainty_dict which defined loc as log(mu) and scale as sqrt(varianceWithPedigreeUncertainty), where mu and varianceWithPedigreeUncertainty are from the ecoinvent database.
     # However, the pedigree matrix factors are not given as variances.
     # We calculate the scale as in pedigree-matrix.PedigreeMatrix
-    lognormal_location = np.log(1)
 
-    # A. Ciroth, S. Muller, B. Weidema, and P. Lesage, “Empirically based uncertainty factors for the pedigree matrix in ecoinvent,” Int J Life Cycle Assess, vol. 21, no. 9, pp. 1338–1348, Sep. 2016, doi: 10.1007/s11367-013-0670-5.
-    PEDIGREE_RELIABILITY = {1: 1.00,
-                            2: 1.54,
-                            3: 1.61,
-                            4: 1.69,
-                            5: 25.0}
-    PEDIGREE_COMPLETENESS = {1: 1.0,
-                             2: 1.03,
-                             3: 1.04,
-                             4: 1.08,
-                             5: 25.0}
-    PEDIGREE_TEMPORAL = {1: 1.0,
-                         2: 1.03,
-                         3: 1.10,
-                         4: 1.19,
-                         5: 1.29}
-    PEDIGREE_GEOGRAPHICAL = {1: 1.0,
-                             2: 1.04,
-                             3: 1.08,
-                             4: 1.11,
-                             5: 25.0}
-    PEDIGREE_TECHNOLOGICAL = {1: 1.0,
-                              2: 1.18,
-                              3: 1.65,
-                              4: 2.08,
-                              5: 2.8}
+    def ei3conv(x):
+        # eq. 12.14 of [1] R. Heijungs, Probability, Statistics and Life Cycle Assessment: Guidance for Dealing with Uncertainty and Sensitivity. Cham: Springer International Publishing, 2024. doi: 10.1007/978-3-031-49317-1.
+        return np.exp(np.sqrt(x))**2
 
-    pm_scores = np.array([PEDIGREE_RELIABILITY[pedigree[0]],
-                          PEDIGREE_COMPLETENESS[pedigree[1]],
-                          PEDIGREE_TEMPORAL[pedigree[2]],
-                          PEDIGREE_GEOGRAPHICAL[pedigree[3]],
-                          PEDIGREE_TECHNOLOGICAL[pedigree[4]]])
-    lognormal_scale = np.sqrt(np.sum(np.log(pm_scores) ** 2)) / 2
+    DQS = {"ecoinvent3": [{1: ei3conv(0.000), 2: ei3conv(0.0006), 3: ei3conv(0.002), 4: ei3conv(0.008), 5: ei3conv(0.04)}, # reliability
+                          {1: ei3conv(0.000), 2: ei3conv(0.0001), 3: ei3conv(0.0006), 4: ei3conv(0.002), 5: ei3conv(0.008)}, # completeness
+                          {1: ei3conv(0.000), 2: ei3conv(0.0002), 3: ei3conv(0.002), 4: ei3conv(0.008), 5: ei3conv(0.04)}, # temporal correlation
+                          {1: ei3conv(0.000), 2: ei3conv(2.5e-5), 3: ei3conv(0.0001), 4: ei3conv(0.0006), 5: ei3conv(0.002)}, # geographical correlation
+                          {1: ei3conv(0.000), 2: ei3conv(0.0006), 3: ei3conv(0.008), 4: ei3conv(0.04), 5: ei3conv(0.12)}, # further technological correlation
+                          ],
+           "ciroth2016": [{1: 1.00, 2: 1.54, 3: 1.61, 4: 1.69, 5: 25.0}, # reliability
+                          {1: 1.00, 2: 1.03, 3: 1.04, 4: 1.08, 5: 25.0}, # completeness
+                          {1: 1.00, 2: 1.03, 3: 1.10, 4: 1.19, 5: 1.29}, # temporal correlation
+                          {1: 1.00, 2: 1.04, 3: 1.08, 4: 1.11, 5: 25.0}, # geographical correlation
+                          {1: 1.00, 2: 1.18, 3: 1.65, 4: 2.08, 5: 2.80}, # further technological correlation
+                          ],
+           }
 
-    uncertainty = stats_arrays.UncertaintyBase.from_dicts({"loc": lognormal_location,
-                                                           "scale": lognormal_scale,
+    pm_scores = np.array([DQS[data_quality_system][i][pedigree[i]] for i in range(len(pedigree))])
+    scale = np.sqrt(np.sum(np.log(pm_scores) ** 2)) / 2
+
+    uncertainty = stats_arrays.UncertaintyBase.from_dicts({"loc": np.log(1),
+                                                           "scale": scale,
                                                            "uncertainty_type": stats_arrays.LognormalUncertainty.id})
     return uncertainty

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # import built-in module
+import itertools
 
 # import third-party modules
 import bw2data as bd
@@ -10,14 +11,15 @@ import stats_arrays
 import numpy as np
 
 # import your own module
-from lcatoolbox import import_foreground
+from lcatoolbox import import_foreground, copy_ecoinvent_activity
 from setup_bw_project import setup_brightway
 
 class TestImport:
 
 
     def test_import_foreground(self):
-        activities = import_foreground("test_import_foreground.ods")
+        activities = import_foreground("test_import_foreground.ods",
+                                       "ciroth2016")
 
         fruit_salad = bd.get_activity(name="fruit_salad", location="DE")
         juice = bd.get_activity(name="juice", location="GLO")
@@ -231,3 +233,80 @@ class TestImport:
                     assert np.array_equal(actual_uncertainty["uncertainty_type"], expected_uncertainty["uncertainty_type"], equal_nan=True)
                 else:
                     assert actual_parameters[e_param["name"]][key] == value
+
+    def test_copy_ecoinvent_activity(self):
+        activity = bd.get_activity(name="transport, freight, train, diesel",
+                                   location="CN")
+        activity_copy = copy_ecoinvent_activity(activity)
+
+        # Activity data
+        assert activity_copy["name"] == activity["name"]
+        assert activity_copy["unit"] == activity["unit"]
+        assert activity_copy["location"] == activity["location"]
+        assert activity_copy.id != activity.id
+        assert activity_copy["database"] == "foreground"
+
+        # Production exchange
+        assert len(activity.production()) == len(activity_copy.production())
+        for exc, exc_copy in zip(activity.production(), activity_copy.production()):
+            assert exc_copy.id != exc.id
+            assert exc_copy.amount == exc.amount
+            assert exc_copy.input == activity_copy
+            assert exc_copy.unit == exc.unit
+            assert exc_copy["type"] == exc["type"]
+
+        # Technosphere and biosphere exchanges
+        assert len(activity_copy.technosphere()) == len(activity.technosphere())
+        assert len(activity_copy.biosphere()) == len(activity.biosphere())
+        expected_params = []
+        for exc, exc_copy in zip(itertools.chain(activity.technosphere(), activity.biosphere()),
+                                 itertools.chain(activity_copy.technosphere(), activity_copy.biosphere())):
+            assert exc_copy.id != exc.id
+            assert exc_copy.amount == exc.amount
+            assert exc_copy.input == exc.input
+            assert exc_copy.uncertainty == {}
+            assert exc_copy.uncertainty_type == stats_arrays.UndefinedUncertainty
+            assert exc_copy.unit == exc.unit
+            assert exc_copy["formula"] == f"exc_{exc_copy.input.id}_{activity_copy.id}"
+
+            data_quality_uncertainty = {"uncertainty_type": stats_arrays.LognormalUncertainty.id,
+                                        "loc": 0.0,
+                                        "scale": np.sqrt(exc["scale"]**2 - exc["scale without pedigree"]**2)}
+            expected_param_data_quality = {"name": f"exc_dq_{exc.input.id}_{activity_copy.id}",
+                                           "amount": 1.0,
+                                           "nominal": 1.0,
+                                           "uncertainty": stats_arrays.UncertaintyBase.from_dicts(data_quality_uncertainty)}
+            amount_uncertainty = {"uncertainty_type": stats_arrays.LognormalUncertainty.id,
+                                        "loc": np.log(exc["amount"]),
+                                        "scale": exc["scale without pedigree"]}
+            expected_param_amount = {"name": f"exc_amount_{exc.input.id}_{activity_copy.id}",
+                                     "amount": exc["amount"],
+                                     "nominal": exc["amount"],
+                                     "uncertainty": stats_arrays.UncertaintyBase.from_dicts(amount_uncertainty)}
+            expected_param_exc = {"name": f"exc_{exc.input.id}_{activity_copy.id}",
+                                  "amount": exc["amount"],
+                                  "formula": f"{expected_param_data_quality["name"]}*{expected_param_amount["name"]}",}
+            expected_params += [expected_param_data_quality,
+                                expected_param_amount,
+                                expected_param_exc]
+
+        # Parameters
+        assert (len(ProjectParameter.select()) ==
+                (len(activity_copy.technosphere()) + len(activity_copy.biosphere())) * 3)
+        for actual_param, expected_param in zip(ProjectParameter.select(), expected_params):
+            assert set(actual_param.dict.keys()) == set(expected_param.keys())
+            for key in actual_param.dict.keys():
+                if key == "uncertainty":
+                    assert np.allclose(actual_param.dict[key]["loc"], expected_param[key]["loc"], equal_nan=True)
+                    assert np.allclose(actual_param.dict[key]["scale"], expected_param[key]["scale"], equal_nan=True)
+                    assert np.allclose(actual_param.dict[key]["shape"], expected_param[key]["shape"], equal_nan=True)
+                    assert np.allclose(actual_param.dict[key]["minimum"], expected_param[key]["minimum"],
+                                          equal_nan=True)
+                    assert np.allclose(actual_param.dict[key]["maximum"], expected_param[key]["maximum"],
+                                          equal_nan=True)
+                    assert np.allclose(actual_param.dict[key]["negative"], expected_param[key]["negative"],
+                                          equal_nan=True)
+                    assert np.array_equal(actual_param.dict[key]["uncertainty_type"],
+                                          expected_param[key]["uncertainty_type"], equal_nan=True)
+                else:
+                    assert actual_param.dict[key] == expected_param[key]

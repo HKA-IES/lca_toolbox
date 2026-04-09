@@ -130,3 +130,26 @@ def fruit_salad():
     ActivityParameter.recalculate_exchanges("group")
 
     return fruit_salad
+
+if __name__ == "__main__":
+    bd.projects.delete_project("lca_toolbox_tests", delete_dir=True)
+
+    bd.projects.set_current("lca_toolbox_tests")
+    if 'ecoinvent-3.12-cutoff' in bd.databases:
+        print('ecoinvent 3.12 is already present in the project')
+        # del bd.databases['ecoinvent-3.12-cutoff']
+        # del bd.databases['ecoinvent-3.12-biosphere']
+    else:
+        bi.import_ecoinvent_release(
+            version='3.12',
+            system_model='cutoff',  # can be cutoff / apos / consequential / EN15804
+        )
+
+    try:
+        del bd.databases["foreground"]
+        ProjectParameter.drop_table(safe=True, drop_sequences=True)
+        ProjectParameter.create_table()
+    except KeyError:
+        pass
+    foreground = bd.Database("foreground")
+    foreground.register()
