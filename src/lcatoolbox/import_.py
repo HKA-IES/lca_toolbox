@@ -226,7 +226,7 @@ def copy_ecoinvent_activity(activity: bd.backends.proxies.Activity,
                                                                               "scale": exc["scale without pedigree"],})
             else:
                 amount_uncertainty = UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.NoUncertainty.id,
-                                                                 "loc": exc["loc"],})
+                                                                 "loc": exc.amount,})
         elif exc["uncertainty type"] == stats_arrays.NormalUncertainty.id:
             amount_uncertainty = UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.NormalUncertainty.id,
                                                              "loc": exc["loc"],

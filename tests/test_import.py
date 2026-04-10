@@ -234,6 +234,7 @@ class TestImport:
                 else:
                     assert actual_parameters[e_param["name"]][key] == value
 
+    # TODO: Write better tests
     def test_copy_ecoinvent_activity(self):
         activity = bd.get_activity(name="transport, freight, train, diesel",
                                    location="CN")
@@ -282,7 +283,7 @@ class TestImport:
                                             "scale": exc["scale without pedigree"]}
             else:
                 amount_uncertainty = {"uncertainty_type": stats_arrays.NoUncertainty.id,
-                                      "loc": np.log(exc["amount"])}
+                                      "loc": exc["amount"]}
             expected_param_amount = {"name": f"exc_amount_{exc.input.id}_{activity_copy.id}",
                                      "amount": exc["amount"],
                                      "nominal": exc["amount"],

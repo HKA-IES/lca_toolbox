@@ -10,6 +10,7 @@ import bw2data as bd
 # import your own module
 
 # ActivityTuple: ("name", "location")
+# TODO: Add third element: database, to handle copy of ecoinvent activitie
 ActivityTuple = Tuple[str, str]
 
 # ImpactCategoryTuple: ("database", "method", "impact_category", "metric")
@@ -23,7 +24,7 @@ ScoresDict = Dict[ActivityTuple, Dict[ImpactCategoryTuple, List[float]]]
 #                             "values": [3, ...]},}
 ParametersDict = Dict[str, Dict[str, Any]]
 
-
+# TODO: Add third element: database, to handle copy of ecoinvent activities
 def act_tuple(activity: bd.backends.proxies.Activity) -> ActivityTuple:
     return activity["name"], activity["location"]
 
