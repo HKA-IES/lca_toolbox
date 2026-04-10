@@ -20,7 +20,8 @@ from .types import (ScoresDict, ParametersDict, ImpactCategoryTuple, concat_scor
 def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
                     impact_categories: List[ImpactCategoryTuple],
                     n_iterations: int,
-                    foreground_db_name: str = "foreground") -> Tuple[ScoresDict, ScoresDict, ParametersDict]:
+                    foreground_db_name: str = "foreground",
+                    progress_bar: bool = True) -> Tuple[ScoresDict, ScoresDict, ParametersDict]:
     # TODO: Handle n_jobs > 1
     n_iterations = int(n_iterations)
     if n_iterations < 1:
@@ -47,7 +48,10 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
         param_sampler = stats_arrays.MCRandomNumberGenerator(uncertainty_params,
                                                          maximum_iterations=n_iterations)
         params_array = param_sampler.generate(n_iterations)
-        param_values = {param.name: value for param, value in zip(project_params, params_array[:, 0])}
+        if n_iterations == 1:
+            param_values = {param.name: value for param, value in zip(project_params, params_array[:])}
+        else:
+            param_values = {param.name: value for param, value in zip(project_params, params_array[:, 0])}
 
     # first iteration to generate scores, parameters
     scores, parameters = calculate_scores(activities + background_activities,
@@ -55,7 +59,8 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
                                           param_values,
                                           use_exchange_distributions=True,
                                           use_parameters_distributions=True)
-    _print_monte_carlo_progress(0, n_iterations)
+    if progress_bar:
+        _print_monte_carlo_progress(0, n_iterations)
 
     # subsequent iterations
     for i in range(1, n_iterations):
@@ -70,7 +75,8 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
         scores = concat_scores_dicts(scores, scores_i)
         parameters = concat_parameters_dicts(parameters, parameters_i)
 
-        _print_monte_carlo_progress(i, n_iterations)
+        if progress_bar:
+            _print_monte_carlo_progress(i, n_iterations)
 
     scores_background = {}
     for bact in background_activities:

@@ -109,6 +109,17 @@ class TestMonteCarlo:
                                   n_iterations=n_iterations, )
 
 
+    def test_monte_carlo_one_iteration(self, imported_activities):
+        impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'water use',
+                              'user deprivation potential (deprivation-weighted water consumption)')]
+        n_iterations = 1
+        _, _, _ = run_monte_carlo(activities=imported_activities,
+                                  impact_categories=impact_categories,
+                                  n_iterations=n_iterations, )
+
+
     def test_discernability_analysis(self):
         scores_act0_ic0 = [0, 1, 2, 3, 4]
         scores_act0_ic1 = [0, 1, 2, 3, 4]
