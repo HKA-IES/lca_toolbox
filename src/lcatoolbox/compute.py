@@ -59,7 +59,12 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
         bd.parameters.recalculate()
         ActivityParameter.recalculate_exchanges("group")
 
-    demands = {str(act.id): {act.id: 1} for act in activities}
+    demands = {}
+    for act in activities:
+        if list(act.production())[0].amount >= 0:
+            demands[str(act.id)] = {act.id: 1}
+        else:
+            demands[str(act.id)] = {act.id: -1}
     method_config = {"impact_categories": impact_categories, }
     data_objs = bd.get_multilca_data_objs(functional_units=demands,
                                           method_config=method_config)

@@ -172,3 +172,18 @@ class TestCompute:
                               'user deprivation potential (deprivation-weighted water consumption)')]
         scores, parameters = calculate_scores(activities,
                                               impact_categories, )
+
+    def test_calculate_scores_negative_reference_amount(self):
+        # When the reference amount is negative, the calculated amount should also be negative
+        # (and the impacts, positive.)
+        activities = [bd.get_activity(name="treatment of waste yarn and waste textile, unsanitary landfill",
+                                      location="IN")]
+        impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'water use',
+                              'user deprivation potential (deprivation-weighted water consumption)')]
+        scores, parameters = calculate_scores(activities,
+                                              impact_categories, )
+
+        for ic in impact_categories:
+            assert scores[act_tuple(activities[0])][ic][0] >= 0
