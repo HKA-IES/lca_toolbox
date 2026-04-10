@@ -5,9 +5,10 @@
 # import third-party modules
 import pandas as pd
 import pytest
+import bw2calc as bc
 
 # import your own module
-from lcatoolbox import contributions_tree, grouped_contributions
+from lcatoolbox import contributions_tree, grouped_contributions, calculate_scores
 from setup_bw_project import setup_brightway, fruit_salad
 
 class TestContributions:
@@ -56,11 +57,37 @@ class TestContributions:
                                       expected_df,
                                       check_like=True)
 
+    def test_contributions_tree_use_nominal_values(self, fruit_salad):
+        impact_category = ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)')
+        expected_df = pd.read_excel("test_contributions_tree_expected_dataframe.ods",
+                                    sheet_name="DataFrame",
+                                    dtype={"amount": float})
+        expected_df = expected_df[expected_df["depth"] < 3]
+
+        _, _ = calculate_scores([fruit_salad], [impact_category],
+                                use_exchange_distributions=True,
+                                use_parameters_distributions=True)
+        actual_df = contributions_tree(activity=fruit_salad,
+                                       amount=1,
+                                       impact_category=impact_category,
+                                       max_depth=2)
+
+        # Do not care about row order
+        expected_df = expected_df.sort_values(by=['contribution'], ascending=False)
+        actual_df = actual_df.sort_values(by=['contribution'], ascending=False)
+        expected_df = expected_df.reset_index(drop=True)
+        actual_df = actual_df.reset_index(drop=True)
+
+        pd.testing.assert_frame_equal(actual_df,
+                                      expected_df,
+                                      check_like=True)
+
     def test_grouped_contributions(self, fruit_salad):
         impact_category = ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)')
         expected_df = pd.read_excel("test_grouped_contributions_expected_dataframe.ods",
                                     sheet_name="DataFrame",
                                     dtype={"score": float})
+
         actual_df = grouped_contributions(activity=fruit_salad,
                                           amount=1,
                                           impact_category=impact_category,
@@ -84,3 +111,28 @@ class TestContributions:
                                               amount=1,
                                               impact_category=impact_category,
                                               max_depth=0)
+
+    def test_grouped_contributions_use_nominal_values(self, fruit_salad):
+        impact_category = ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)')
+        expected_df = pd.read_excel("test_grouped_contributions_expected_dataframe.ods",
+                                    sheet_name="DataFrame",
+                                    dtype={"score": float})
+
+        _, _ = calculate_scores([fruit_salad], [impact_category],
+                                use_exchange_distributions=True,
+                                use_parameters_distributions=True)
+
+        actual_df = grouped_contributions(activity=fruit_salad,
+                                          amount=1,
+                                          impact_category=impact_category,
+                                          max_depth=2)
+
+        # Do not care about row order
+        expected_df = expected_df.sort_values(by=['contribution'], ascending=False)
+        actual_df = actual_df.sort_values(by=['contribution'], ascending=False)
+        expected_df = expected_df.reset_index(drop=True)
+        actual_df = actual_df.reset_index(drop=True)
+
+        pd.testing.assert_frame_equal(actual_df,
+                                      expected_df,
+                                      check_like=True)

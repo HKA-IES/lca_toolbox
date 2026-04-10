@@ -5,11 +5,11 @@ from typing import List, Dict, Any
 
 # import third-party modules
 import bw2data as bd
-import bw2calc as bc
 import pandas as pd
 
 # import your own module
-from .types import ImpactCategoryTuple
+from .types import ImpactCategoryTuple, act_tuple
+from .compute import calculate_scores
 
 def contributions_tree(activity: bd.backends.proxies.Activity,
                        amount: float,
@@ -38,31 +38,18 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
     # TODO: Enforce ordering of contributions same as openLCA?
     # implementation adapted from https://github.com/brightway-lca/brightway2/blob/master/notebooks/Contribution%20analysis%20and%20comparison.ipynb
 
-    # First generate demands for all activities down to max_depth, so that we can compute the scores all at once. This saves a lot of time.
-    demands = {str(activity.id): {activity.id: 1}}
-    def generate_demands_from_exchanges(activity, max_depth: int) -> Dict[str, Dict[str, int]]:
-        demands = {}
-
+    # First generate list of all activities down to max_depth, so that we can compute the scores all at once. This saves a lot of time.
+    activities = [activity]
+    def generate_activities_from_exchanges(activity, max_depth: int):
         for exc in activity.technosphere():
-            if list(exc.input.production())[0].amount > 0:
-                demands[str(exc.input.id)] = {exc.input.id: 1}
-            else:
-                # Account for waste activities whose reference amount is negative.
-                demands[str(exc.input.id)] = {exc.input.id: -1}
+            activities.append(exc.input)
 
             if max_depth > 0:
-                demands.update(generate_demands_from_exchanges(exc.input, max_depth-1))
-        return demands
-    demands.update(generate_demands_from_exchanges(activity, max_depth))
+                generate_activities_from_exchanges(exc.input, max_depth-1)
+    generate_activities_from_exchanges(activity, max_depth)
+    activities = list(set(activities))
 
-    method_config = {"impact_categories": [impact_category]}
-    data_objs = bd.get_multilca_data_objs(functional_units=demands,
-                                          method_config=method_config)
-    lca = bc.MultiLCA(demands=demands,
-                  method_config=method_config,
-                  data_objs=data_objs)
-    lca.lci()
-    lca.lcia()
+    scores, _ = calculate_scores(activities, [impact_category])
 
     def get_contributions(parent_act: bd.backends.proxies.Activity,
                           act: bd.backends.proxies.Activity,
@@ -86,7 +73,7 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
                                        "depth": depth,
                                        "amount": amount,
                                        "unit": act["unit"],
-                                       "score": amount*lca.scores[impact_category, str(act.id)]})
+                                       "score": amount*scores[act_tuple(act)][impact_category][0]})
         else:
             contributions.append({"activity_name": act["name"],
                                        "activity_location": act["location"],
@@ -95,7 +82,7 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
                                        "depth": depth,
                                        "amount": amount,
                                        "unit": act["unit"],
-                                       "score": amount*lca.scores[impact_category, str(act.id)]})
+                                       "score": amount*scores[act_tuple(act)][impact_category][0]})
 
         if depth < max_depth:
             for exc in act.technosphere():
@@ -104,7 +91,7 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
 
     contributions = get_contributions(None, activity, amount, 0, max_depth)
     df = pd.DataFrame(contributions)
-    total_score = amount*lca.scores[impact_category, str(activity.id)]
+    total_score = amount * scores[act_tuple(activity)][impact_category][0]
     df["contribution"] = df["score"] / total_score
 
     return df
@@ -136,36 +123,22 @@ def grouped_contributions(activity: bd.backends.proxies.Activity,
     # TODO: Enforce ordering of contributions?
     # implementation adapted from https://github.com/brightway-lca/brightway2/blob/master/notebooks/Contribution%20analysis%20and%20comparison.ipynb
 
-    # First generate demands for all activities down to max_depth, so that we can compute the scores all at once. This saves a lot of time.
+    # First generate list of all activities down to max_depth, so that we can compute the scores all at once. This saves a lot of time.
 
     # Note: this is NOT the same function as in contributions_tree
-    demands = {str(activity.id): {activity.id: 1}}
-    def generate_demands_from_exchanges(activity, max_depth: int) -> Dict[str, Dict[str, int]]:
-        demands = {}
-
+    activities = [activity]
+    def generate_activities_from_exchanges(activity, max_depth: int):
         for exc in activity.technosphere():
             if exc["group"] is not None:
-                if list(exc.input.production())[0].amount > 0:
-                    demands[str(exc.input.id)] = {exc.input.id: 1}
-                else:
-                    # Account for waste activities whose reference amount is negative.
-                    demands[str(exc.input.id)] = {exc.input.id: -1}
+                activities.append(exc.input)
             else:
                 if max_depth == 0:
                     raise RuntimeError(f"Max depth reached but no group found.")
                 else:
-                    demands.update(generate_demands_from_exchanges(exc.input, max_depth-1))
-        return demands
-    demands.update(generate_demands_from_exchanges(activity, max_depth))
+                    generate_activities_from_exchanges(exc.input, max_depth-1)
+    generate_activities_from_exchanges(activity, max_depth)
 
-    method_config = {"impact_categories": [impact_category]}
-    data_objs = bd.get_multilca_data_objs(functional_units=demands,
-                                          method_config=method_config)
-    lca = bc.MultiLCA(demands=demands,
-                  method_config=method_config,
-                  data_objs=data_objs)
-    lca.lci()
-    lca.lcia()
+    scores, _ = calculate_scores(activities, [impact_category])
 
     # Note: this is NOT the same function as in contributions_tree
     def get_contributions(act: bd.backends.proxies.Activity,
@@ -187,9 +160,12 @@ def grouped_contributions(activity: bd.backends.proxies.Activity,
                 if exc_production_amount < 0:
                     exc_amount *= -1
                 try:
-                    grouped_contributions[exc["group"]] += lca.scores[impact_category, str(exc.input.id)]*amount*exc_amount/abs(production_amount)
+                    # grouped_contributions[exc["group"]] += lca.scores[impact_category, str(exc.input.id)]*amount*exc_amount/abs(production_amount)
+                    grouped_contributions[exc["group"]] += scores[act_tuple(exc.input)][impact_category][0] * amount * exc_amount / abs(production_amount)
                 except KeyError:
-                    grouped_contributions[exc["group"]] = lca.scores[impact_category, str(exc.input.id)]*amount*exc_amount/abs(production_amount)
+                    # grouped_contributions[exc["group"]] = lca.scores[impact_category, str(exc.input.id)]*amount*exc_amount/abs(production_amount)
+                    grouped_contributions[exc["group"]] = scores[act_tuple(exc.input)][impact_category][
+                                                               0] * amount * exc_amount / abs(production_amount)
             else:
                 new_grouped_contributions = get_contributions(exc.input, exc.amount*amount/abs(production_amount), max_depth-1)
                 for key, value in new_grouped_contributions.items():
@@ -201,7 +177,7 @@ def grouped_contributions(activity: bd.backends.proxies.Activity,
 
     grouped_contributions = get_contributions(activity, amount, max_depth)
     df = pd.DataFrame(list(grouped_contributions.items()), columns=["group", "score"])
-    total_score = amount*lca.scores[impact_category, str(activity.id)]
+    total_score = amount * scores[act_tuple(activity)][impact_category][0]
     df["contribution"] = df["score"] / total_score
 
     return df

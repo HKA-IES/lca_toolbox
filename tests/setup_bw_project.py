@@ -5,6 +5,7 @@
 # import third-party modules
 import bw2io as bi
 import bw2data as bd
+import bw2calc as bc
 import stats_arrays
 from bw2data.parameters import ActivityParameter, ProjectParameter
 import pytest
@@ -37,7 +38,8 @@ def setup_brightway():
 
 @pytest.fixture
 def imported_activities():
-    activities = import_foreground("test_import_foreground.ods")
+    activities = import_foreground("test_import_foreground.ods",
+                                   "ciroth2016")
     return activities
 
 
@@ -122,12 +124,18 @@ def fruit_salad():
                                              "formula": "0.5*some_random_value",},
                                           {"name": "some_random_value",
                                            "amount": 2,
+                                           "nominal": 2,
                                            "uncertainty": stats_arrays.UncertaintyBase.from_dicts({"minimum": 1.5,
                                                                                                    "maximum": 2.5,
                                                                                                    "uncertainty_type": stats_arrays.UniformUncertainty.id,})},])
 
     bd.parameters.add_exchanges_to_group("group", fruit_salad)
+    bd.parameters.add_exchanges_to_group("group", juice)
     ActivityParameter.recalculate_exchanges("group")
+
+    # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
+    # Why? I don't know...
+    _ = bc.LCA(demand={fruit_salad.id: 1}, method=list(bd.methods)[0])
 
     return fruit_salad
 
