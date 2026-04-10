@@ -201,19 +201,38 @@ def copy_ecoinvent_activity(activity: bd.backends.proxies.Activity,
                          type=bd.labels.production_edge_default).save()
 
     for exc in itertools.chain(activity.technosphere(), activity.biosphere()):
-        dq_tuple = (exc["pedigree"]["reliability"],
-                    exc["pedigree"]["completeness"],
-                    exc["pedigree"]["temporal correlation"],
-                    exc["pedigree"]["geographical correlation"],
-                    exc["pedigree"]["further technological correlation"],)
-        data_quality_uncertainty = _uncertainty_from_pedigree_matrix(dq_tuple)
+        if "pedigree" in exc:
+            dq_tuple = (exc["pedigree"]["reliability"],
+                        exc["pedigree"]["completeness"],
+                        exc["pedigree"]["temporal correlation"],
+                        exc["pedigree"]["geographical correlation"],
+                        exc["pedigree"]["further technological correlation"],)
+            data_quality_uncertainty = _uncertainty_from_pedigree_matrix(dq_tuple)
+        else:
+            data_quality_uncertainty = stats_arrays.UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.NoUncertainty.id,
+                                                                                "loc": 1})
         param_data_quality = {"name": f"exc_dq_{exc.input.id}_{new_act.id}",
                               "amount": 1.0,
                               "nominal": 1.0,
                               "uncertainty": data_quality_uncertainty, }
-        amount_uncertainty = UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.LognormalUncertainty.id,
-                                                                          "loc": exc["loc"],
-                                                                          "scale": exc["scale without pedigree"],})
+
+        if exc["uncertainty type"] == stats_arrays.UndefinedUncertainty.id:
+            amount_uncertainty = UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.UndefinedUncertainty.id,
+                                                             "loc": exc["loc"], })
+        elif exc["uncertainty type"] == stats_arrays.LognormalUncertainty.id:
+            if exc["scale without pedigree"] > 0:
+                amount_uncertainty = UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.LognormalUncertainty.id,
+                                                                              "loc": exc["loc"],
+                                                                              "scale": exc["scale without pedigree"],})
+            else:
+                amount_uncertainty = UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.NoUncertainty.id,
+                                                                 "loc": exc["loc"],})
+        elif exc["uncertainty type"] == stats_arrays.NormalUncertainty.id:
+            amount_uncertainty = UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.NormalUncertainty.id,
+                                                             "loc": exc["loc"],
+                                                             "scale": exc["scale without pedigree"], })
+        else:
+            raise ValueError(f"Unsupported uncertainty type: {exc["uncertainty type"]}")
         param_amount = {"name": f"exc_amount_{exc.input.id}_{new_act.id}",
                         "amount": exc.amount,
                         "nominal": exc.amount,
@@ -234,7 +253,7 @@ def copy_ecoinvent_activity(activity: bd.backends.proxies.Activity,
 
     # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
     # Why? I don't know...
-    _ = bc.LCA(demand={new_act[0]: 1}, method=list(bd.methods)[0])
+    _ = bc.LCA(demand={new_act: 1}, method=list(bd.methods)[0])
 
     return new_act
 

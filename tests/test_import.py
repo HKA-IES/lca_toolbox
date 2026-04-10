@@ -276,9 +276,13 @@ class TestImport:
                                            "amount": 1.0,
                                            "nominal": 1.0,
                                            "uncertainty": stats_arrays.UncertaintyBase.from_dicts(data_quality_uncertainty)}
-            amount_uncertainty = {"uncertainty_type": stats_arrays.LognormalUncertainty.id,
-                                        "loc": np.log(exc["amount"]),
-                                        "scale": exc["scale without pedigree"]}
+            if exc["scale without pedigree"] > 0:
+                amount_uncertainty = {"uncertainty_type": stats_arrays.LognormalUncertainty.id,
+                                            "loc": np.log(exc["amount"]),
+                                            "scale": exc["scale without pedigree"]}
+            else:
+                amount_uncertainty = {"uncertainty_type": stats_arrays.NoUncertainty.id,
+                                      "loc": np.log(exc["amount"])}
             expected_param_amount = {"name": f"exc_amount_{exc.input.id}_{activity_copy.id}",
                                      "amount": exc["amount"],
                                      "nominal": exc["amount"],
@@ -310,3 +314,34 @@ class TestImport:
                                           expected_param[key]["uncertainty_type"], equal_nan=True)
                 else:
                     assert actual_param.dict[key] == expected_param[key]
+
+    def test_copy_ecoinvent_activity_pedigree_missing(self):
+        """
+        If no pedigree is specified for an exchange,
+        dq uncertainty is NoUncertainty.
+        """
+        activity = bd.get_activity(name="market for biowaste, kitchen and garden waste",
+                                   location="GLO")
+        activity_copy = copy_ecoinvent_activity(activity)
+
+        # TODO: Check contents
+
+    def test_copy_ecoinvent_activity_negative_scale(self):
+        """
+        Ensure that no negative scale is created.
+        """
+        activity = bd.get_activity(name="board, softwood, raw, kiln drying to u=10%",
+                                   location="CA-QC")
+        activity_copy = copy_ecoinvent_activity(activity)
+
+        # TODO: Check contents
+
+    def test_copy_ecoinvent_activity_normal_uncertainty(self):
+        """
+        Ensure that no negative scale is created.
+        """
+        activity = bd.get_activity(name="pea production, organic, hill region",
+                                   location="CH")
+        activity_copy = copy_ecoinvent_activity(activity)
+
+        # TODO: Check contents
