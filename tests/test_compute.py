@@ -3,7 +3,6 @@
 # import built-in module
 
 # import third-party modules
-import bw2calc as bc
 import bw2data as bd
 from bw2data.parameters import ProjectParameter
 import pytest
@@ -22,9 +21,6 @@ class TestCompute:
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
-        # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
-        # Why? I don't know...
-        _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
         scores, parameters = calculate_scores(activities,
                                                     impact_categories,)
@@ -62,9 +58,6 @@ class TestCompute:
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
-        # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
-        # Why? I don't know...
-        _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
         scores_1, parameters_1 = calculate_scores(activities,
                                                     impact_categories,
@@ -86,9 +79,6 @@ class TestCompute:
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
-        # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
-        # Why? I don't know...
-        _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
         scores_1, parameters_1 = calculate_scores(activities,
                                                         impact_categories,
@@ -110,9 +100,6 @@ class TestCompute:
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
-        # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
-        # Why? I don't know...
-        _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
         scores_1, parameters_1 = calculate_scores(activities,
                                                         impact_categories,
@@ -138,9 +125,6 @@ class TestCompute:
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
-        # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
-        # Why? I don't know...
-        _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
         with pytest.raises(ValueError):
             _, _ = calculate_scores(activities,
@@ -154,9 +138,6 @@ class TestCompute:
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
-        # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
-        # Why? I don't know...
-        _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
         with pytest.raises(ValueError):
             _, _ = calculate_scores(activities,

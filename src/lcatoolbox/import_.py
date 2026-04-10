@@ -11,6 +11,7 @@ from bw2data.parameters import ActivityParameter
 import pandas as pd
 import stats_arrays
 import numpy as np
+import bw2calc as bc
 import pyexcel
 from stats_arrays import UncertaintyBase
 
@@ -178,6 +179,10 @@ def import_foreground(file_path: str,
 
     ActivityParameter.recalculate_exchanges("group")
 
+    # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
+    # Why? I don't know...
+    _ = bc.LCA(demand={new_activities[0]: 1}, method=list(bd.methods)[0])
+
     return new_activities
 
 def copy_ecoinvent_activity(activity: bd.backends.proxies.Activity,
@@ -226,6 +231,11 @@ def copy_ecoinvent_activity(activity: bd.backends.proxies.Activity,
 
     bd.parameters.add_exchanges_to_group("group", new_act)
     ActivityParameter.recalculate_exchanges("group")
+
+    # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
+    # Why? I don't know...
+    _ = bc.LCA(demand={new_act[0]: 1}, method=list(bd.methods)[0])
+
     return new_act
 
 
