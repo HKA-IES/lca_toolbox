@@ -346,3 +346,26 @@ class TestImport:
         activity_copy = copy_ecoinvent_activity(activity)
 
         # TODO: Check contents
+
+    def test_copy_ecoinvent_activity_edge_case_1(self):
+        activity = bd.get_activity(name="petroleum and gas production, offshore",
+                                   location="IN",
+                                   product="natural gas, high pressure")
+        activity_copy = copy_ecoinvent_activity(activity)
+        # TODO: problem is scale for exchange bGas, natural (is null)
+
+    def test_copy_ecoinvent_activity_edge_case_2(self):
+        activity = bd.get_activity(name="treatment of waste reinforced plasterboard, sorting plant",
+                                   location="CH",
+                                   product="waste reinforced plasterboard")
+        activity_copy = copy_ecoinvent_activity(activity)
+
+        # TODO: problem is scale for exchange ?? (is null)
+
+    def test_copy_ecoinvent_activity_edge_case_3(self):
+        activity = bd.get_activity(name="treatment of waste polyurethane, municipal incineration",
+                                   location="GLO",
+                                   product="waste polyurethane")
+        activity_copy = copy_ecoinvent_activity(activity)
+
+        # TODO: problem is scale for exchange ?? (is null)

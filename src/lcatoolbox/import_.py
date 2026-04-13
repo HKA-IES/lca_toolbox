@@ -291,7 +291,11 @@ def _uncertainty_from_pedigree_matrix(pedigree: Tuple[int, int, int, int, int],
     pm_scores = np.array([DQS[data_quality_system][i][pedigree[i]] for i in range(len(pedigree))])
     scale = np.sqrt(np.sum(np.log(pm_scores) ** 2)) / 2
 
-    uncertainty = stats_arrays.UncertaintyBase.from_dicts({"loc": np.log(1),
-                                                           "scale": scale,
-                                                           "uncertainty_type": stats_arrays.LognormalUncertainty.id})
+    if scale > 0:
+        uncertainty = stats_arrays.UncertaintyBase.from_dicts({"loc": np.log(1),
+                                                               "scale": scale,
+                                                               "uncertainty_type": stats_arrays.LognormalUncertainty.id})
+    else:
+        uncertainty = stats_arrays.UncertaintyBase.from_dicts({"loc": 1,
+                                                               "uncertainty_type": stats_arrays.NoUncertainty.id})
     return uncertainty

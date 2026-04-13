@@ -56,21 +56,12 @@ if __name__ == "__main__":
         foreground.register()
 
         # Original activity
-        try:
-            scores, parameters = lcatoolbox.calculate_scores([act], impact_categories)
-            mc_scores, mc_scores_background, mc_parameters = lcatoolbox.run_monte_carlo([act], impact_categories, 1, progress_bar=False)
-            # contributions = lcatoolbox.contributions_tree(act, 1, impact_categories[0], max_depth=1)
-        except Exception:
-            pass
+        scores, parameters = lcatoolbox.calculate_scores([act], impact_categories)
+        mc_scores, mc_scores_background, mc_parameters = lcatoolbox.run_monte_carlo([act], impact_categories, 1, progress_bar=False)
+        # contributions = lcatoolbox.contributions_tree(act, 1, impact_categories[0], max_depth=1)
 
         # Copy
-        try:
-            act_copy = lcatoolbox.copy_ecoinvent_activity(act)
-            # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
-            # Why? I don't know...
-            _ = bc.LCA(demand={act_copy.id: 1}, method=impact_categories[0])
-            scores_copy, parameters_copy = lcatoolbox.calculate_scores([act_copy], impact_categories)
-            mc_scores_copy, mc_scores_background_copy, mc_parameters_copy = lcatoolbox.run_monte_carlo([act_copy], impact_categories, 1, progress_bar=False)
-            # contributions_copy = lcatoolbox.contributions_tree(act_copy, 1, impact_categories[0], max_depth=1)
-        except Exception:
-            pass
+        act_copy = lcatoolbox.copy_ecoinvent_activity(act)
+        scores_copy, parameters_copy = lcatoolbox.calculate_scores([act_copy], impact_categories)
+        mc_scores_copy, mc_scores_background_copy, mc_parameters_copy = lcatoolbox.run_monte_carlo([act_copy], impact_categories, 1, progress_bar=False)
+        # contributions_copy = lcatoolbox.contributions_tree(act_copy, 1, impact_categories[0], max_depth=1)
