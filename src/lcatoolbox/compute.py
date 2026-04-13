@@ -26,6 +26,11 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
     (use_parameters_distributions=True) or set to their default values.
 
     """
+    if len(activities) == 0:
+        raise ValueError("No activities provided")
+    if len(impact_categories) == 0:
+        raise ValueError("Must specify at least one impact category")
+
     project_parameters = list(ProjectParameter.select())
 
     # Specified parameters are invalid if 1) parameter does not exist or 2) parameter is defined by a formula

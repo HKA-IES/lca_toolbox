@@ -168,3 +168,22 @@ class TestCompute:
 
         for ic in impact_categories:
             assert scores[act_tuple(activities[0])][ic][0] >= 0
+
+    def test_calculate_scores_no_activities(self):
+        activities = []
+
+        impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'water use',
+                              'user deprivation potential (deprivation-weighted water consumption)')]
+
+        with pytest.raises(ValueError):
+            _, _ = calculate_scores(activities, impact_categories,)
+
+    def test_calculate_scores_no_impact_categories(self, imported_activities):
+        activities = imported_activities
+
+        impact_categories = []
+
+        with pytest.raises(ValueError):
+            _, _ = calculate_scores(activities, impact_categories,)
