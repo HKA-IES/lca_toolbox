@@ -76,13 +76,16 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
     lca.lci()
     lca.lcia()
 
+    # taking a copy of lca.scores because .scores is recalculated every time it is called.
+    lca_scores = lca.scores
+
     scores = {}
     parameters = {}
 
     for act in activities:
         scores[(act["name"], act["location"])] = {}
         for ic in impact_categories:
-            scores[(act["name"], act["location"])][ic] = [lca.scores[ic, str(act.id)]]
+            scores[(act["name"], act["location"])][ic] = [lca_scores[ic, str(act.id)]]
 
     for param in ProjectParameter.select():
         if param.formula is None:
