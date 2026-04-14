@@ -2,6 +2,7 @@
 
 # import built-in module
 from typing import Tuple, List, Dict
+import time
 
 # import third-party modules
 import bw2data as bd
@@ -54,13 +55,16 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
             param_values = {param.name: value for param, value in zip(project_params, params_array[:, 0])}
 
     # first iteration to generate scores, parameters
+    start_time = time.time()
     scores, parameters = calculate_scores(activities + background_activities,
                                           impact_categories,
                                           param_values,
                                           use_exchange_distributions=True,
                                           use_parameters_distributions=True)
+    elapsed = time.time() - start_time
+    remaining = elapsed / 1 * n_iterations
     if progress_bar:
-        _print_monte_carlo_progress(0, n_iterations)
+        _print_monte_carlo_progress(0, n_iterations, elapsed, remaining)
 
     # subsequent iterations
     for i in range(1, n_iterations):
@@ -75,8 +79,10 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
         scores = concat_scores_dicts(scores, scores_i)
         parameters = concat_parameters_dicts(parameters, parameters_i)
 
+        elapsed = time.time() - start_time
+        remaining = elapsed / (i+1) * (n_iterations - i + 1)
         if progress_bar:
-            _print_monte_carlo_progress(i, n_iterations)
+            _print_monte_carlo_progress(i, n_iterations, elapsed, remaining)
 
     scores_background = {}
     for bact in background_activities:
@@ -104,13 +110,13 @@ def discernability_analysis(scores: ScoresDict) -> Dict[str, pd.DataFrame]:
 
     return results
 
-def _print_monte_carlo_progress(iteration: int, total: int):
+def _print_monte_carlo_progress(iteration: int, total: int, seconds_elapsed: float, seconds_remaining: float):
     # Adapted from https://stackoverflow.com/questions/3173320/text-progress-bar-in-terminal-with-block-characters
     length = 50
     fill = '█'
     filledLength = int(length * (iteration+1) // total)
     bar = fill * filledLength + '-' * (length - filledLength)
-    print(f'\rMonte Carlo: |{bar}| {iteration+1}/{total}')
+    print(f'\rMonte Carlo: |{bar}| {iteration+1}/{total} ({seconds_elapsed:.1f} s elapsed, {seconds_remaining:.1f} s remaining)')
     # Print New Line on Complete
     if iteration == total:
         print()
