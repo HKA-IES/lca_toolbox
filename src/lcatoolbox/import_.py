@@ -7,7 +7,7 @@ import itertools
 
 # import third-party modules
 import bw2data as bd
-from bw2data.parameters import ActivityParameter
+from bw2data.parameters import ActivityParameter, ProjectParameter
 import pandas as pd
 import stats_arrays
 import numpy as np
@@ -276,6 +276,16 @@ def copy_ecoinvent_activity(activity: bd.backends.proxies.Activity,
     _ = bc.LCA(demand={new_act: 1}, method=list(bd.methods)[0])
 
     return new_act
+
+def reset_foreground(foreground_db: str = "foreground"):
+    try:
+        del bd.databases[foreground_db]
+        ProjectParameter.drop_table(safe=True, drop_sequences=True)
+        ProjectParameter.create_table()
+    except KeyError:
+        pass
+    foreground = bd.Database(foreground_db)
+    foreground.register()
 
 
 def _uncertainty_from_pedigree_matrix(pedigree: Tuple[int, int, int, int, int],

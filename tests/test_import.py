@@ -5,13 +5,14 @@ import itertools
 
 # import third-party modules
 import bw2data as bd
+from bw2data.errors import UnknownObject
 from bw2data.parameters import ProjectParameter
 import pytest
 import stats_arrays
 import numpy as np
 
 # import your own module
-from lcatoolbox import import_foreground, copy_ecoinvent_activity, calculate_scores
+from lcatoolbox import import_foreground, copy_ecoinvent_activity, reset_foreground
 from setup_bw_project import setup_brightway
 
 class TestImport:
@@ -401,3 +402,13 @@ class TestImport:
         activity_copy = copy_ecoinvent_activity(activity)
 
         # TODO: no valid biosphere flow
+
+    def test_reset_foreground(self):
+        activities = import_foreground("test_import_foreground.ods",
+                                       "ciroth2016")
+
+        _ = bd.get_activity(name=activities[0]["name"])
+        reset_foreground()
+
+        with pytest.raises(UnknownObject):
+            _ = bd.get_activity(name=activities[0]["name"])
