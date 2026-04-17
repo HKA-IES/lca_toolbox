@@ -234,6 +234,11 @@ class TestImport:
                                         {"loc": 0.1,
                                          "scale": 0.02,
                                          "uncertainty_type": stats_arrays.NormalUncertainty.id})})
+        expected_parameters.append({"name": "just_a_number",
+                                    "amount": 2.3,
+                                    "uncertainty": stats_arrays.UncertaintyBase.from_dicts(
+                                        {"loc": 2.3,
+                                         "uncertainty_type": stats_arrays.NoUncertainty.id})})
 
         actual_parameters = {param.name: param.dict for param in ProjectParameter.select()}
         assert len(actual_parameters) == len(expected_parameters)

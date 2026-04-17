@@ -91,8 +91,13 @@ def import_foreground(file_path: str,
             try:
                 param["amount"] = float(row["Value"])
                 param["nominal"] = param["amount"]
+                if UNCERTAINTY_TYPES_MAP[row["Uncertainty Type"]] in [stats_arrays.UndefinedUncertainty.id,
+                                                                stats_arrays.NoUncertainty.id,]:
+                    loc = param["amount"]
+                else:
+                    loc = row["Uncertainty Location"]
                 param["uncertainty"] = UncertaintyBase.from_dicts({"uncertainty_type": UNCERTAINTY_TYPES_MAP[row["Uncertainty Type"]],
-                                                                          "loc": row["Uncertainty Location"],
+                                                                          "loc": loc,
                                                                           "scale": row["Uncertainty Scale"],
                                                                           "shape": row["Uncertainty Shape"],
                                                                           "minimum": row["Uncertainty Minimum"],
