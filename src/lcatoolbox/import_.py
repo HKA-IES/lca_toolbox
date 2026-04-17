@@ -280,10 +280,10 @@ def copy_ecoinvent_activity(activity: bd.backends.proxies.Activity,
 def reset_foreground(foreground_db: str = "foreground"):
     try:
         del bd.databases[foreground_db]
-        ProjectParameter.drop_table(safe=True, drop_sequences=True)
-        ProjectParameter.create_table()
     except KeyError:
         pass
+    ProjectParameter.drop_table(safe=True, drop_sequences=True)
+    ProjectParameter.create_table()
     foreground = bd.Database(foreground_db)
     foreground.register()
 
