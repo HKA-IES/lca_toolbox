@@ -9,9 +9,8 @@ import bw2data as bd
 
 # import your own module
 
-# ActivityTuple: ("name", "location")
-# TODO: Add third element: database, to handle copy of ecoinvent activitie
-ActivityTuple = Tuple[str, str]
+# ActivityTuple: ("name", "product", "location", "database")
+ActivityTuple = Tuple[str, str, str, str]
 
 # ImpactCategoryTuple: ("database", "method", "impact_category", "metric")
 ImpactCategoryTuple = Tuple[str, str, str, str]
@@ -24,9 +23,12 @@ ScoresDict = Dict[ActivityTuple, Dict[ImpactCategoryTuple, List[float]]]
 #                             "values": [3, ...]},}
 ParametersDict = Dict[str, Dict[str, Any]]
 
-# TODO: Add third element: database, to handle copy of ecoinvent activities
 def act_tuple(activity: bd.backends.proxies.Activity) -> ActivityTuple:
-    return activity["name"], activity["location"]
+    try:
+        product = activity["reference product"]
+    except KeyError:
+        product = None
+    return activity["name"], product, activity["location"], activity["database"]
 
 def concat_scores_dicts(scores_1: ScoresDict, scores_2: ScoresDict) -> ScoresDict:
     # Check that dicts have the same keys
