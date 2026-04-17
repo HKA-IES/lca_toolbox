@@ -24,7 +24,10 @@ class TestMonteCarlo:
                                  bd.get_activity(name="apple production", location="IT"),
                                  bd.get_activity(name="anchovy, capture by wooden purse seiner and landing whole, fresh",
                                                  location="PE"),
-                                 bd.get_activity(name="market for biowaste, kitchen and garden waste", location="GLO")
+                                 bd.get_activity(name="market for biowaste, kitchen and garden waste", location="GLO"),
+                                 bd.get_activity(name="industrial gases production, cryogenic air separation",
+                                                 location="Asia without China",
+                                                 product="oxygen, liquid")
                                  ]
 
         impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
