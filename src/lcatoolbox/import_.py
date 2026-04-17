@@ -32,6 +32,9 @@ UNCERTAINTY_TYPES_MAP = {"Undefined": stats_arrays.UndefinedUncertainty.id,
                          "Generalized Extreme Value": stats_arrays.GeneralizedExtremeValueUncertainty.id,
                          "Student's T": stats_arrays.StudentsTUncertainty.id,}
 
+# TODO: consider using activity tuples for exchange parameters name - this way, they can be directly interpreted. They
+#  would also be robust to changes in the DB.
+# TODO: Check that the format of the foreground spreadsheet is OK before adding any parameters, activities.
 def import_foreground(file_path: str,
                       data_quality_system: str,
                       foreground_db_name: str = "foreground") -> List[bd.backends.proxies.Activity]:
@@ -112,16 +115,23 @@ def import_foreground(file_path: str,
         df = pd.read_excel(file_path,
                        sheet_name=ws.name,
                        skiprows=6)
+        df["Product"] = df["Product"].fillna("")
+        df["Location"] = df["Location"].fillna("")
+        df["Categories"] = df["Categories"].fillna("")
 
         for _, row in df.iterrows():
-            if row["Type"] == "technosphere":
-                exc_act = bd.get_activity(name=row["Activity"],
-                                      location=row["Location"],)
-                exc_type = bd.labels.consumption_edge_default
-            elif row["Type"] == "biosphere":
-                exc_act = bd.get_activity(name=row["Activity"],
-                                          categories=ast.literal_eval(row["Categories"]),)
-                exc_type = bd.labels.biosphere_edge_default
+            activity_search_args = {"name": row["Activity"]}
+
+            if row["Product"] != "":
+                activity_search_args["product"] = row["Product"]
+
+            if row["Location"] != "":
+                activity_search_args["location"] = row["Location"]
+
+            if row["Categories"] != "":
+                activity_search_args["categories"] = ast.literal_eval(row["Categories"])
+
+            exc_act = bd.get_activity(**activity_search_args)
 
             if row["Unit"] != exc_act["unit"]:
                 raise ValueError(f"In new activity {act}, the specified unit ({row["Unit"]}) for the exchange "
@@ -163,6 +173,11 @@ def import_foreground(file_path: str,
 
             param_exc = {"name": f"exc_{exc_act.id}_{act.id}",
                                "formula": f"{param_data_quality["name"]}*{param_amount["name"]}"}
+
+            if row["Type"] == "technosphere":
+                exc_type = bd.labels.consumption_edge_default
+            elif row["Type"] == "biosphere":
+                exc_type = bd.labels.biosphere_edge_default
 
             act.new_exchange(amount=1,
                                    formula=f"{param_exc["name"]}",

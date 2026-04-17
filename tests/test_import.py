@@ -11,7 +11,7 @@ import stats_arrays
 import numpy as np
 
 # import your own module
-from lcatoolbox import import_foreground, copy_ecoinvent_activity
+from lcatoolbox import import_foreground, copy_ecoinvent_activity, calculate_scores
 from setup_bw_project import setup_brightway
 
 class TestImport:
@@ -32,6 +32,9 @@ class TestImport:
         container = bd.get_activity(name="beverage carton production, 1 L, for juice (ambient)", location="RER")
         orange = bd.get_activity(name="orange production, processing grade", location="RoW")
         water = bd.get_activity(name="Water, unspecified natural origin", categories=('natural resource', 'in water'))
+        oxygen = bd.get_activity(name="industrial gases production, cryogenic air separation",
+                                 location="Asia without China",
+                                 product="oxygen, liquid")
 
         # Number of activities
         assert len(activities) == 2
@@ -50,7 +53,7 @@ class TestImport:
         fruit_salad_exchanges = list(fruit_salad.exchanges())
         juice_exchanges = list(juice.exchanges())
         assert len(fruit_salad_exchanges) == 6
-        assert len(juice_exchanges) == 4
+        assert len(juice_exchanges) == 5
 
         assert fruit_salad_exchanges[0]["amount"] == 1
         assert fruit_salad_exchanges[0]["unit"] == "item(s)"
@@ -95,6 +98,10 @@ class TestImport:
         assert juice_exchanges[3]["unit"] == "cubic meter"
         assert juice_exchanges[3]["formula"] == f"exc_{water.id}_{juice.id}"
         assert juice_exchanges[3].input == water
+
+        assert juice_exchanges[4]["unit"] == "kilogram"
+        assert juice_exchanges[4]["formula"] == f"exc_{oxygen.id}_{juice.id}"
+        assert juice_exchanges[4].input == oxygen
 
         # Parameters
         expected_parameters = []
@@ -200,6 +207,18 @@ class TestImport:
                                 {"name": f"exc_amount_{water.id}_{juice.id}",
                                  "amount": 0.0005,
                                  "uncertainty": uncertainty_amount_water, }]
+        uncertainty_amount_oxygen = stats_arrays.UncertaintyBase.from_dicts(
+            {"loc": .0,
+             "uncertainty_type": stats_arrays.NoUncertainty.id})
+        expected_parameters += [{"name": f"exc_{oxygen.id}_{juice.id}",
+                                 "formula": f"exc_dq_{oxygen.id}_{juice.id}*"
+                                            f"exc_amount_{oxygen.id}_{juice.id}", },
+                                {"name": f"exc_dq_{oxygen.id}_{juice.id}",
+                                 "amount": 1.,
+                                 "uncertainty": uncertainty_dq, },
+                                {"name": f"exc_amount_{oxygen.id}_{juice.id}",
+                                 "amount": 0.,
+                                 "uncertainty": uncertainty_amount_oxygen, }]
 
         expected_parameters.append({"name": "some_random_value",
                                     "amount": 2.,
@@ -369,3 +388,11 @@ class TestImport:
         activity_copy = copy_ecoinvent_activity(activity)
 
         # TODO: problem is scale for exchange ?? (is null)
+
+    def test_copy_ecoinvent_activity_edge_case_4(self):
+        activity = bd.get_activity(name="treatment of sewage sludge, 70% water, WWT-SLF, cake from sorting of waste plastic, municipal incineration",
+                                   location="RER",
+                                   product="electricity, for reuse in municipal waste incineration only")
+        activity_copy = copy_ecoinvent_activity(activity)
+
+        # TODO: no valid biosphere flow
