@@ -105,6 +105,24 @@ class TestSensitivity:
         assert (list(results[activities[0]][impact_categories[0]]["value"])[0]
                 != list(results[activities[0]][impact_categories[0]]["value"])[1])
 
+    def test_global_sensitivity_analysis_ignore_dependent(self, scores, scores_background, parameters):
+        activities_tuples = list(scores.keys())
+        impact_categories = list(scores[activities_tuples[0]].keys())
+
+        results = global_sensitivity_analysis(scores, scores_background, parameters,
+                                                 algorithm="main_effect_li_2016_alg_1",
+                                                 n_bins=10,
+                                              ignore_dependent=False)
+
+        assert len(results[activities_tuples[0]][impact_categories[0]]) == 33
+
+        results_ignore_dependent = global_sensitivity_analysis(scores, scores_background, parameters,
+                                              algorithm="main_effect_li_2016_alg_1",
+                                              n_bins=10,
+                                              ignore_dependent=True)
+
+        assert len(results_ignore_dependent[activities_tuples[0]][impact_categories[0]]) == 22
+
     def test_local_sensitivity_analysis(self, imported_activities):
         activities = imported_activities
         impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),

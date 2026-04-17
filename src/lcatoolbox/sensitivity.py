@@ -42,6 +42,9 @@ def global_sensitivity_analysis(scores: ScoresDict,
                                "type": "background",
                                "value": s})
             for param in parameters.keys():
+                if ignore_dependent and parameters[param]["type"] == "dependent":
+                    continue
+
                 x = parameters[param]["values"]
                 s = alg_fn(np.array(x), np.array(y), n_bins)
                 raw_df.append({"name": param,
