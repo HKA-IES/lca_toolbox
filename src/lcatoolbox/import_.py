@@ -128,66 +128,32 @@ def import_foreground(file_path: str,
 
             exc_act = bd.get_activity(**activity_search_args)
 
-            if row["Unit"] != exc_act["unit"]:
-                raise ValueError(f"In new activity {act}, the specified unit ({row["Unit"]}) for the exchange "
-                                 f"with activity {exc_act} does not match the activity's unit ({exc_act["unit"]}).")
-
-            if row["Group"] is np.nan:
-                exc_group = None
-            else:
-                exc_group = row["Group"]
-
             if row["Type"] == "technosphere":
                 exc_type = bd.labels.consumption_edge_default
             elif row["Type"] == "biosphere":
                 exc_type = bd.labels.biosphere_edge_default
 
-            new_exc = act.new_exchange(amount=1,
-                             unit=row["Unit"],
-                             input=exc_act,
-                             type=exc_type,
-                             group=exc_group)
-            new_exc.save()
-
-            # Create parameters for the exchange amount
-            # Consist of an amount and a data quality component.
-            # Data quality is defined from pedigree matrix
-            # Amount is defined either from numerical value and uncertainty distribution OR formula
-            dq_tuple = tuple(int(val) for val in row["Data Quality"].strip("()").split(";"))
-            param_data_quality = {"name": f"exc_{new_exc.id}_data_quality",
-                                  "amount": 1,
-                                  "nominal": 1,
-                                  "uncertainty": _uncertainty_from_pedigree_matrix(dq_tuple, data_quality_system),}
-
-            param_amount = {"name": f"exc_{new_exc.id}_amount",}
             try:
-                param_amount["amount"] = float(row["Amount"])
-                param_amount["nominal"] = param_amount["amount"]
-                if UNCERTAINTY_TYPES_MAP[row["Uncertainty Type"]] in [stats_arrays.UndefinedUncertainty.id,
-                                                                stats_arrays.NoUncertainty.id,]:
-                    loc = param_amount["amount"]
-                else:
-                    loc = row["Uncertainty Location"]
-                param_amount["uncertainty"] = UncertaintyBase.from_dicts({"uncertainty_type": UNCERTAINTY_TYPES_MAP[row["Uncertainty Type"]],
-                                                                          "loc": loc,
-                                                                          "scale": row["Uncertainty Scale"],
-                                                                          "shape": row["Uncertainty Shape"],
-                                                                          "minimum": row["Uncertainty Minimum"],
-                                                                          "maximum": row["Uncertainty Maximum"],})
+                amount = float(row["Amount"])
+                formula = None
             except ValueError:
-                param_amount["formula"] = row["Amount"]
-                param_amount["uncertainty"] = None
-                param_amount["nominal"] = None
+                amount = 1
+                formula = row["Amount"]
 
-            # using deepcopy because the parameter dictionnaries are modified by .new_project_parameters()
-            bd.parameters.new_project_parameters([deepcopy(param_data_quality),
-                                                  deepcopy(param_amount)])
+            _create_exchange(parent_act=act, provider_act=exc_act, type_=exc_type,
+                             amount=amount, unit=row["Unit"], group=row["Group"],
+                             uncertainty_type=row["Uncertainty Type"],
+                             uncertainty_location=row["Uncertainty Location"],
+                             uncertainty_scale=row["Uncertainty Scale"],
+                             uncertainty_shape=row["Uncertainty Shape"],
+                             uncertainty_min=row["Uncertainty Minimum"],
+                             uncertainty_max=row["Uncertainty Maximum"],
+                             formula=formula,
+                             data_quality_tuple=tuple(int(val) for val in row["Data Quality"].strip("()").split(";")),
+                             data_quality_system=data_quality_system,
+                             )
 
-            new_exc["formula"] = f"{param_amount["name"]}*{param_data_quality["name"]}"
-            new_exc.save()
         bd.parameters.add_exchanges_to_group("group", act)
-
-
 
     ActivityParameter.recalculate_exchanges("group")
 
@@ -321,3 +287,68 @@ def _uncertainty_from_pedigree_matrix(pedigree: Tuple[int, int, int, int, int],
         uncertainty = stats_arrays.UncertaintyBase.from_dicts({"loc": 1,
                                                                "uncertainty_type": stats_arrays.NoUncertainty.id})
     return uncertainty
+
+def _create_exchange(parent_act: bd.backends.Activity,
+                     provider_act: bd.backends.Activity,
+                     type_: str,
+                     amount: float,
+                     unit: str,
+                     uncertainty_type: str,
+                     uncertainty_location: float,
+                     uncertainty_scale: float,
+                     uncertainty_shape: float,
+                     uncertainty_min: float,
+                     uncertainty_max: float,
+                     group: str = None,
+                     formula: str = None,
+                     data_quality_tuple: Tuple[int, int, int, int, int] = (1, 1, 1, 1, 1),
+                     data_quality_system: str = "ecoinvent3"):
+
+    if unit != provider_act["unit"]:
+        raise ValueError(f"Mismatch between specified unit ({unit}) and exchange activity unit ({provider_act["unit"]}) for exchange"
+                         f"from {provider_act} to {parent_act}.")
+
+    new_exc = parent_act.new_exchange(amount=1,
+                               unit=unit,
+                               input=provider_act,
+                               type=type_,
+                               group=group)
+    new_exc.save()
+
+    # Create parameters for the exchange amount
+    # Consist of an amount and a data quality component.
+    # Data quality is defined from pedigree matrix
+    # Amount is defined either from numerical value and uncertainty distribution OR formula
+    param_data_quality = {"name": f"exc_{new_exc.id}_data_quality",
+                          "amount": 1,
+                          "nominal": 1,
+                          "uncertainty": _uncertainty_from_pedigree_matrix(data_quality_tuple, data_quality_system), }
+
+    param_amount = {"name": f"exc_{new_exc.id}_amount", }
+
+    if formula is not None:
+        param_amount["formula"] = formula
+        param_amount["uncertainty"] = None
+        param_amount["nominal"] = None
+    else:
+        param_amount["amount"] = amount
+        param_amount["nominal"] = amount
+        if UNCERTAINTY_TYPES_MAP[uncertainty_type] in [stats_arrays.UndefinedUncertainty.id,
+                                                              stats_arrays.NoUncertainty.id, ]:
+            loc = amount
+        else:
+            loc = uncertainty_location
+        param_amount["uncertainty"] = UncertaintyBase.from_dicts(
+            {"uncertainty_type": UNCERTAINTY_TYPES_MAP[uncertainty_type],
+             "loc": loc,
+             "scale": uncertainty_scale,
+             "shape": uncertainty_shape,
+             "minimum": uncertainty_min,
+             "maximum": uncertainty_max, })
+
+    # using deepcopy because the parameter dictionnaries are modified by .new_project_parameters()
+    bd.parameters.new_project_parameters([deepcopy(param_data_quality),
+                                          deepcopy(param_amount)])
+
+    new_exc["formula"] = f"{param_amount["name"]}*{param_data_quality["name"]}"
+    new_exc.save()
