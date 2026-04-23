@@ -4,6 +4,7 @@
 from typing import Tuple, List, Dict
 import ast
 import itertools
+from copy import deepcopy
 
 # import third-party modules
 import bw2data as bd
@@ -32,8 +33,6 @@ UNCERTAINTY_TYPES_MAP = {"Undefined": stats_arrays.UndefinedUncertainty.id,
                          "Generalized Extreme Value": stats_arrays.GeneralizedExtremeValueUncertainty.id,
                          "Student's T": stats_arrays.StudentsTUncertainty.id,}
 
-# TODO: consider using activity tuples for exchange parameters name - this way, they can be directly interpreted. They
-#  would also be robust to changes in the DB.
 # TODO: Check that the format of the foreground spreadsheet is OK before adding any parameters, activities.
 def import_foreground(file_path: str,
                       data_quality_system: str,
@@ -43,7 +42,7 @@ def import_foreground(file_path: str,
 
     wb = pyexcel.get_book(file_name=file_path)
 
-    new_activities = []
+    new_activities = {}
 
     # Create activities (sheets beginning with a_)
     # Exchanges are added later, to avoid a case where an exchange requires an activity which was not already created.
@@ -51,42 +50,34 @@ def import_foreground(file_path: str,
         if ws.name[0:2] != "a_":
             continue
 
-        # Check that formatting is OK
-        try:
-            assert ws["A1"] == "Name"
-            assert ws["A2"] == "Unit"
-            assert ws["A3"] == "Location"
-            assert ws["A4"] == "Reference Amount"
-            assert ws["A5"] == "Notes"
-        except AssertionError:
-            raise RuntimeError(f"sheet {ws.name} not formatted properly.")
-
-        new_act_name = ws["B1"]
-        new_act_unit = ws["B2"]
-        new_act_location = ws["B3"]
-        new_act_ref_amount = ws["B4"]
+        df_act = pd.read_excel(file_path, ws.name,
+                               usecols="A:B",
+                               nrows=6,
+                               header=None,
+                               index_col=0).transpose().squeeze()
 
         # Create activity
-        new_act = foreground_db.new_node(name=new_act_name,
-                                         unit=new_act_unit,
-                                         location=new_act_location,
+        new_act = foreground_db.new_node(name=df_act["Name"],
+                                         location=df_act["Location"],
+                                         product=df_act["Product"],
+                                         unit=df_act["Unit"],
                                          type=bd.labels.chimaera_node_default)
         new_act.save()
-        new_act.new_edge(amount=new_act_ref_amount,
-                         unit=new_act_unit,
+        new_act.new_edge(amount=df_act["Amount"],
+                         unit=df_act["Unit"],
                          input=new_act,
                          type=bd.labels.production_edge_default).save()
-        new_activities.append(new_act)
+        new_activities[ws.name] = new_act
 
     # Add parameters from sheets starting with p_
     for ws in wb:
         if ws.name[0:2] != "p_":
             continue
 
-        df = pd.read_excel(file_path,
+        df_params = pd.read_excel(file_path,
                            sheet_name=ws.name)
 
-        for _, row in df.iterrows():
+        for _, row in df_params.iterrows():
             param = {"name": row["Name"]}
             try:
                 param["amount"] = float(row["Value"])
@@ -114,17 +105,16 @@ def import_foreground(file_path: str,
         if ws.name[0:2] != "a_":
             continue
 
-        act = bd.get_activity(name=ws["B1"],
-                                  location=ws["B3"],)
-
-        df = pd.read_excel(file_path,
+        act = new_activities[ws.name]
+        # TODO: Determine nb of rows to skip dynamically?
+        df_exchanges = pd.read_excel(file_path,
                        sheet_name=ws.name,
-                       skiprows=6)
-        df["Product"] = df["Product"].fillna("")
-        df["Location"] = df["Location"].fillna("")
-        df["Categories"] = df["Categories"].fillna("")
+                       skiprows=7)
+        df_exchanges["Product"] = df_exchanges["Product"].fillna("")
+        df_exchanges["Location"] = df_exchanges["Location"].fillna("")
+        df_exchanges["Categories"] = df_exchanges["Categories"].fillna("")
 
-        for _, row in df.iterrows():
+        for _, row in df_exchanges.iterrows():
             activity_search_args = {"name": row["Activity"]}
 
             if row["Product"] != "":
@@ -146,17 +136,30 @@ def import_foreground(file_path: str,
                 exc_group = None
             else:
                 exc_group = row["Group"]
+
+            if row["Type"] == "technosphere":
+                exc_type = bd.labels.consumption_edge_default
+            elif row["Type"] == "biosphere":
+                exc_type = bd.labels.biosphere_edge_default
+
+            new_exc = act.new_exchange(amount=1,
+                             unit=row["Unit"],
+                             input=exc_act,
+                             type=exc_type,
+                             group=exc_group)
+            new_exc.save()
+
             # Create parameters for the exchange amount
             # Consist of an amount and a data quality component.
             # Data quality is defined from pedigree matrix
             # Amount is defined either from numerical value and uncertainty distribution OR formula
             dq_tuple = tuple(int(val) for val in row["Data Quality"].strip("()").split(";"))
-            param_data_quality = {"name": f"exc_dq_{exc_act.id}_{act.id}",
+            param_data_quality = {"name": f"exc_{new_exc.id}_data_quality",
                                   "amount": 1,
                                   "nominal": 1,
                                   "uncertainty": _uncertainty_from_pedigree_matrix(dq_tuple, data_quality_system),}
 
-            param_amount = {"name": f"exc_amount_{exc_act.id}_{act.id}",}
+            param_amount = {"name": f"exc_{new_exc.id}_amount",}
             try:
                 param_amount["amount"] = float(row["Amount"])
                 param_amount["nominal"] = param_amount["amount"]
@@ -176,23 +179,12 @@ def import_foreground(file_path: str,
                 param_amount["uncertainty"] = None
                 param_amount["nominal"] = None
 
-            param_exc = {"name": f"exc_{exc_act.id}_{act.id}",
-                               "formula": f"{param_data_quality["name"]}*{param_amount["name"]}"}
+            # using deepcopy because the parameter dictionnaries are modified by .new_project_parameters()
+            bd.parameters.new_project_parameters([deepcopy(param_data_quality),
+                                                  deepcopy(param_amount)])
 
-            if row["Type"] == "technosphere":
-                exc_type = bd.labels.consumption_edge_default
-            elif row["Type"] == "biosphere":
-                exc_type = bd.labels.biosphere_edge_default
-
-            act.new_exchange(amount=1,
-                                   formula=f"{param_exc["name"]}",
-                                    unit=row["Unit"],
-                                    input=exc_act,
-                                    type=exc_type,
-                                    group=exc_group).save()
-            bd.parameters.new_project_parameters([param_data_quality,
-                                                  param_amount,
-                                                  param_exc])
+            new_exc["formula"] = f"{param_amount["name"]}*{param_data_quality["name"]}"
+            new_exc.save()
         bd.parameters.add_exchanges_to_group("group", act)
 
 
@@ -201,9 +193,9 @@ def import_foreground(file_path: str,
 
     # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
     # Why? I don't know...
-    _ = bc.LCA(demand={new_activities[0]: 1}, method=list(bd.methods)[0])
+    _ = bc.LCA(demand={act: 1 for act in new_activities.values()}, method=list(bd.methods)[0])
 
-    return new_activities
+    return list(new_activities.values())
 
 def copy_ecoinvent_activity(activity: bd.backends.proxies.Activity,
                       foreground_db_name: str = "foreground") -> bd.backends.proxies.Activity:

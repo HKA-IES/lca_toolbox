@@ -57,3 +57,9 @@ def concat_parameters_dicts(params_1: ParametersDict, params_2: ParametersDict) 
         concat_parameters[param_key]["values"] += params_2[param_key]["values"]
 
     return concat_parameters
+
+def get_exchange(id_: int) -> bd.backends.Exchange:
+    ED = bd.backends.schema.ExchangeDataset
+    qs = ED.select().where(ED.id == id_)
+    exc = bd.backends.Exchange(qs[0])
+    return exc

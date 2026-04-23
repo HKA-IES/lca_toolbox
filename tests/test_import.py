@@ -12,7 +12,7 @@ import stats_arrays
 import numpy as np
 
 # import your own module
-from lcatoolbox import import_foreground, copy_ecoinvent_activity, reset_foreground
+from lcatoolbox import import_foreground, copy_ecoinvent_activity, reset_foreground, act_tuple
 from setup_bw_project import setup_brightway
 
 class TestImport:
@@ -22,8 +22,8 @@ class TestImport:
         activities = import_foreground("test_import_foreground.ods",
                                        "ciroth2016")
 
-        fruit_salad = bd.get_activity(name="fruit_salad", location="DE")
-        juice = bd.get_activity(name="juice", location="GLO")
+        fruit_salad = bd.get_activity(name="fruit salad production", location="DE")
+        juice = bd.get_activity(name="juice production", location="GLO")
 
         apple = bd.get_activity(name="apple production", location="IT")
         kiwi = bd.get_activity(name="kiwi production", location="GLO")
@@ -43,12 +43,14 @@ class TestImport:
         assert activities[1] == juice
 
         # Activities content
-        assert fruit_salad["name"] == "fruit_salad"
+        assert fruit_salad["name"] == "fruit salad production"
         assert fruit_salad["unit"] == "item(s)"
         assert fruit_salad["location"] == "DE"
-        assert juice["name"] == "juice"
+        assert fruit_salad["product"] == "fruit salad"
+        assert juice["name"] == "juice production"
         assert juice["unit"] == "liter"
         assert juice["location"] == "GLO"
+        assert juice["product"] == "juice"
 
         # Exchanges
         fruit_salad_exchanges = list(fruit_salad.exchanges())
@@ -63,23 +65,28 @@ class TestImport:
             _ = fruit_salad_exchanges[0]["formula"]
 
         assert fruit_salad_exchanges[1]["unit"] == "kilogram"
-        assert fruit_salad_exchanges[1]["formula"] == f"exc_{apple.id}_{fruit_salad.id}"
+        assert fruit_salad_exchanges[1]["formula"] == (f"exc_{fruit_salad_exchanges[1].id}_amount*"
+                                                       f"exc_{fruit_salad_exchanges[1].id}_data_quality")
         assert fruit_salad_exchanges[1].input == apple
 
         assert fruit_salad_exchanges[2]["unit"] == "kilogram"
-        assert fruit_salad_exchanges[2]["formula"] == f"exc_{kiwi.id}_{fruit_salad.id}"
+        assert fruit_salad_exchanges[2]["formula"] == (f"exc_{fruit_salad_exchanges[2].id}_amount*"
+                                                       f"exc_{fruit_salad_exchanges[2].id}_data_quality")
         assert fruit_salad_exchanges[2].input == kiwi
 
         assert fruit_salad_exchanges[3]["unit"] == "kilogram"
-        assert fruit_salad_exchanges[3]["formula"] == f"exc_{anchovy.id}_{fruit_salad.id}"
+        assert fruit_salad_exchanges[3]["formula"] == (f"exc_{fruit_salad_exchanges[3].id}_amount*"
+                                                       f"exc_{fruit_salad_exchanges[3].id}_data_quality")
         assert fruit_salad_exchanges[3].input == anchovy
 
         assert fruit_salad_exchanges[4]["unit"] == "liter"
-        assert fruit_salad_exchanges[4]["formula"] == f"exc_{juice.id}_{fruit_salad.id}"
+        assert fruit_salad_exchanges[4]["formula"] == (f"exc_{fruit_salad_exchanges[4].id}_amount*"
+                                                       f"exc_{fruit_salad_exchanges[4].id}_data_quality")
         assert fruit_salad_exchanges[4].input == juice
 
         assert fruit_salad_exchanges[5]["unit"] == "kilogram"
-        assert fruit_salad_exchanges[5]["formula"] == f"exc_{biowaste.id}_{fruit_salad.id}"
+        assert fruit_salad_exchanges[5]["formula"] == (f"exc_{fruit_salad_exchanges[5].id}_amount*"
+                                                       f"exc_{fruit_salad_exchanges[5].id}_data_quality")
         assert fruit_salad_exchanges[5].input == biowaste
 
         assert juice_exchanges[0]["unit"] == "liter"
@@ -89,19 +96,23 @@ class TestImport:
             _ = juice_exchanges[0]["formula"]
 
         assert juice_exchanges[1]["unit"] == "unit"
-        assert juice_exchanges[1]["formula"] == f"exc_{container.id}_{juice.id}"
+        assert juice_exchanges[1]["formula"] == (f"exc_{juice_exchanges[1].id}_amount*"
+                                                 f"exc_{juice_exchanges[1].id}_data_quality")
         assert juice_exchanges[1].input == container
 
         assert juice_exchanges[2]["unit"] == "kilogram"
-        assert juice_exchanges[2]["formula"] == f"exc_{orange.id}_{juice.id}"
+        assert juice_exchanges[2]["formula"] == (f"exc_{juice_exchanges[2].id}_amount*"
+                                                 f"exc_{juice_exchanges[2].id}_data_quality")
         assert juice_exchanges[2].input == orange
 
         assert juice_exchanges[3]["unit"] == "cubic meter"
-        assert juice_exchanges[3]["formula"] == f"exc_{water.id}_{juice.id}"
+        assert juice_exchanges[3]["formula"] == (f"exc_{juice_exchanges[3].id}_amount*"
+                                                 f"exc_{juice_exchanges[3].id}_data_quality")
         assert juice_exchanges[3].input == water
 
         assert juice_exchanges[4]["unit"] == "kilogram"
-        assert juice_exchanges[4]["formula"] == f"exc_{oxygen.id}_{juice.id}"
+        assert juice_exchanges[4]["formula"] == (f"exc_{juice_exchanges[4].id}_amount*"
+                                                 f"exc_{juice_exchanges[4].id}_data_quality")
         assert juice_exchanges[4].input == oxygen
 
         # Parameters
@@ -115,12 +126,10 @@ class TestImport:
             {"minimum": 0.25,
              "maximum": 0.75,
              "uncertainty_type": stats_arrays.UniformUncertainty.id})
-        expected_parameters += [{"name": f"exc_{apple.id}_{fruit_salad.id}",
-                                 "formula": f"exc_dq_{apple.id}_{fruit_salad.id}*exc_amount_{apple.id}_{fruit_salad.id}",},
-                                {"name": f"exc_dq_{apple.id}_{fruit_salad.id}",
+        expected_parameters += [{"name": f"exc_{fruit_salad_exchanges[1].id}_data_quality",
                                  "amount": 1.,
                                  "uncertainty": uncertainty_dq,},
-                                {"name": f"exc_amount_{apple.id}_{fruit_salad.id}",
+                                {"name": f"exc_{fruit_salad_exchanges[1].id}_amount",
                                  "amount": 0.5,
                                  "uncertainty": uncertainty_amount_apple,}]
 
@@ -128,96 +137,72 @@ class TestImport:
             {"loc": 0.125,
              "scale": 0.025,
              "uncertainty_type": stats_arrays.NormalUncertainty.id})
-        expected_parameters += [{"name": f"exc_{kiwi.id}_{fruit_salad.id}",
-                                 "formula": f"exc_dq_{kiwi.id}_{fruit_salad.id}*"
-                                            f"exc_amount_{kiwi.id}_{fruit_salad.id}", },
-                                {"name": f"exc_dq_{kiwi.id}_{fruit_salad.id}",
+        expected_parameters += [{"name": f"exc_{fruit_salad_exchanges[2].id}_data_quality",
                                  "amount": 1.,
                                  "uncertainty": uncertainty_dq, },
-                                {"name": f"exc_amount_{kiwi.id}_{fruit_salad.id}",
+                                {"name": f"exc_{fruit_salad_exchanges[2].id}_amount",
                                  "amount": 0.125,
                                  "uncertainty": uncertainty_amount_kiwi, }]
 
         uncertainty_amount_anchovy = stats_arrays.UncertaintyBase.from_dicts(
             {"loc": 0.,
              "uncertainty_type": stats_arrays.NoUncertainty.id})
-        expected_parameters += [{"name": f"exc_{anchovy.id}_{fruit_salad.id}",
-                                 "formula": f"exc_dq_{anchovy.id}_{fruit_salad.id}*"
-                                            f"exc_amount_{anchovy.id}_{fruit_salad.id}", },
-                                {"name": f"exc_dq_{anchovy.id}_{fruit_salad.id}",
+        expected_parameters += [{"name": f"exc_{fruit_salad_exchanges[3].id}_data_quality",
                                  "amount": 1.,
                                  "uncertainty": uncertainty_dq, },
-                                {"name": f"exc_amount_{anchovy.id}_{fruit_salad.id}",
+                                {"name": f"exc_{fruit_salad_exchanges[3].id}_amount",
                                  "amount": 0.,
                                  "uncertainty": uncertainty_amount_anchovy, }]
 
         uncertainty_amount_juice = stats_arrays.UncertaintyBase.from_dicts(
             {"loc": 0.1,
              "uncertainty_type": stats_arrays.NoUncertainty.id})
-        expected_parameters += [{"name": f"exc_{juice.id}_{fruit_salad.id}",
-                                 "formula": f"exc_dq_{juice.id}_{fruit_salad.id}*"
-                                            f"exc_amount_{juice.id}_{fruit_salad.id}", },
-                                {"name": f"exc_dq_{juice.id}_{fruit_salad.id}",
+        expected_parameters += [{"name": f"exc_{fruit_salad_exchanges[4].id}_data_quality",
                                  "amount": 1.,
                                  "uncertainty": uncertainty_dq, },
-                                {"name": f"exc_amount_{juice.id}_{fruit_salad.id}",
+                                {"name": f"exc_{fruit_salad_exchanges[4].id}_amount",
                                  "amount": 0.1,
                                  "uncertainty": uncertainty_amount_juice, }]
 
-        expected_parameters += [{"name": f"exc_{biowaste.id}_{fruit_salad.id}",
-                                 "formula": f"exc_dq_{biowaste.id}_{fruit_salad.id}*"
-                                            f"exc_amount_{biowaste.id}_{fruit_salad.id}", },
-                                {"name": f"exc_dq_{biowaste.id}_{fruit_salad.id}",
+        expected_parameters += [{"name": f"exc_{fruit_salad_exchanges[5].id}_data_quality",
                                  "amount": 1.,
                                  "uncertainty": uncertainty_dq, },
-                                {"name": f"exc_amount_{biowaste.id}_{fruit_salad.id}",
+                                {"name": f"exc_{fruit_salad_exchanges[5].id}_amount",
                                  "formula": "-what_a_waste"}]
 
-        expected_parameters += [{"name": f"exc_{container.id}_{juice.id}",
-                                 "formula": f"exc_dq_{container.id}_{juice.id}*"
-                                            f"exc_amount_{container.id}_{juice.id}", },
-                                {"name": f"exc_dq_{container.id}_{juice.id}",
+        expected_parameters += [{"name": f"exc_{juice_exchanges[1].id}_data_quality",
                                  "amount": 1.,
                                  "uncertainty": uncertainty_dq, },
-                                {"name": f"exc_amount_{container.id}_{juice.id}",
+                                {"name": f"exc_{juice_exchanges[1].id}_amount",
                                  "formula": "amount_beverage_carton", }]
 
         uncertainty_amount_orange = stats_arrays.UncertaintyBase.from_dicts(
             {"loc": 3.,
              "scale": 0.5,
              "uncertainty_type": stats_arrays.NormalUncertainty.id})
-        expected_parameters += [{"name": f"exc_{orange.id}_{juice.id}",
-                                 "formula": f"exc_dq_{orange.id}_{juice.id}*"
-                                            f"exc_amount_{orange.id}_{juice.id}", },
-                                {"name": f"exc_dq_{orange.id}_{juice.id}",
+        expected_parameters += [{"name": f"exc_{juice_exchanges[2].id}_data_quality",
                                  "amount": 1.,
                                  "uncertainty": uncertainty_dq, },
-                                {"name": f"exc_amount_{orange.id}_{juice.id}",
+                                {"name": f"exc_{juice_exchanges[2].id}_amount",
                                  "amount": 3.,
                                  "uncertainty": uncertainty_amount_orange, }]
 
         uncertainty_amount_water = stats_arrays.UncertaintyBase.from_dicts(
             {"loc": 0.0005,
              "uncertainty_type": stats_arrays.NoUncertainty.id})
-        expected_parameters += [{"name": f"exc_{water.id}_{juice.id}",
-                                 "formula": f"exc_dq_{water.id}_{juice.id}*"
-                                            f"exc_amount_{water.id}_{juice.id}", },
-                                {"name": f"exc_dq_{water.id}_{juice.id}",
+        expected_parameters += [{"name": f"exc_{juice_exchanges[3].id}_data_quality",
                                  "amount": 1.,
                                  "uncertainty": uncertainty_dq, },
-                                {"name": f"exc_amount_{water.id}_{juice.id}",
+                                {"name": f"exc_{juice_exchanges[3].id}_amount",
                                  "amount": 0.0005,
                                  "uncertainty": uncertainty_amount_water, }]
         uncertainty_amount_oxygen = stats_arrays.UncertaintyBase.from_dicts(
             {"loc": .0,
              "uncertainty_type": stats_arrays.NoUncertainty.id})
-        expected_parameters += [{"name": f"exc_{oxygen.id}_{juice.id}",
-                                 "formula": f"exc_dq_{oxygen.id}_{juice.id}*"
-                                            f"exc_amount_{oxygen.id}_{juice.id}", },
-                                {"name": f"exc_dq_{oxygen.id}_{juice.id}",
+        expected_parameters += [{"name": f"exc_{juice_exchanges[4].id}_data_quality",
                                  "amount": 1.,
                                  "uncertainty": uncertainty_dq, },
-                                {"name": f"exc_amount_{oxygen.id}_{juice.id}",
+                                {"name": f"exc_{juice_exchanges[4].id}_amount",
                                  "amount": 0.,
                                  "uncertainty": uncertainty_amount_oxygen, }]
 
