@@ -33,10 +33,11 @@ UNCERTAINTY_TYPES_MAP = {"Undefined": stats_arrays.UndefinedUncertainty.id,
                          "Generalized Extreme Value": stats_arrays.GeneralizedExtremeValueUncertainty.id,
                          "Student's T": stats_arrays.StudentsTUncertainty.id,}
 
-# TODO: Check that the format of the foreground spreadsheet is OK before adding any parameters, activities.
+
 def import_foreground(file_path: str,
                       data_quality_system: str,
                       foreground_db_name: str = "foreground") -> List[bd.backends.proxies.Activity]:
+
     foreground_db = bd.Database(foreground_db_name)
     foreground_db.register()
 
@@ -50,11 +51,14 @@ def import_foreground(file_path: str,
         if ws.name[0:2] != "a_":
             continue
 
-        df_act = pd.read_excel(file_path, ws.name,
-                               usecols="A:B",
-                               nrows=6,
-                               header=None,
-                               index_col=0).transpose().squeeze()
+        n_rows = 0
+        for el in ws.column[0]:
+            if el == "":
+                break
+            n_rows += 1
+
+        df_act = pd.read_excel(io=file_path, sheet_name=ws.name, usecols="A:B",
+                               nrows=n_rows, header=None, index_col=0).transpose().squeeze()
 
         # Create activity
         new_act = foreground_db.new_node(name=df_act["Name"],
@@ -104,12 +108,17 @@ def import_foreground(file_path: str,
     for ws in wb:
         if ws.name[0:2] != "a_":
             continue
-
         act = new_activities[ws.name]
-        # TODO: Determine nb of rows to skip dynamically?
+
+        n_rows_to_skip = 0
+        for el in ws.column[0]:
+            n_rows_to_skip += 1
+            if el == "":
+                break
+
         df_exchanges = pd.read_excel(file_path,
                        sheet_name=ws.name,
-                       skiprows=7)
+                       skiprows=n_rows_to_skip,)
         df_exchanges["Product"] = df_exchanges["Product"].fillna("")
         df_exchanges["Location"] = df_exchanges["Location"].fillna("")
         df_exchanges["Categories"] = df_exchanges["Categories"].fillna("")
