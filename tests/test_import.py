@@ -278,12 +278,11 @@ class TestImport:
             assert exc_copy.uncertainty == {}
             assert exc_copy.uncertainty_type == stats_arrays.UndefinedUncertainty
             assert exc_copy.unit == exc.unit
-            assert exc_copy["formula"] == f"exc_{exc_copy.input.id}_{activity_copy.id}"
 
             data_quality_uncertainty = {"uncertainty_type": stats_arrays.LognormalUncertainty.id,
                                         "loc": 0.0,
                                         "scale": np.sqrt(exc["scale"]**2 - exc["scale without pedigree"]**2)}
-            expected_param_data_quality = {"name": f"exc_dq_{exc.input.id}_{activity_copy.id}",
+            expected_param_data_quality = {"name": f"exc_{exc_copy.id}_data_quality",
                                            "amount": 1.0,
                                            "nominal": 1.0,
                                            "uncertainty": stats_arrays.UncertaintyBase.from_dicts(data_quality_uncertainty)}
@@ -294,20 +293,19 @@ class TestImport:
             else:
                 amount_uncertainty = {"uncertainty_type": stats_arrays.NoUncertainty.id,
                                       "loc": exc["amount"]}
-            expected_param_amount = {"name": f"exc_amount_{exc.input.id}_{activity_copy.id}",
+            expected_param_amount = {"name": f"exc_{exc_copy.id}_amount",
                                      "amount": exc["amount"],
                                      "nominal": exc["amount"],
                                      "uncertainty": stats_arrays.UncertaintyBase.from_dicts(amount_uncertainty)}
-            expected_param_exc = {"name": f"exc_{exc.input.id}_{activity_copy.id}",
-                                  "amount": exc["amount"],
-                                  "formula": f"{expected_param_data_quality["name"]}*{expected_param_amount["name"]}",}
+
+            assert exc_copy["formula"] == f"{expected_param_amount["name"]}*{expected_param_data_quality["name"]}"
+
             expected_params += [expected_param_data_quality,
-                                expected_param_amount,
-                                expected_param_exc]
+                                expected_param_amount]
 
         # Parameters
         assert (len(ProjectParameter.select()) ==
-                (len(activity_copy.technosphere()) + len(activity_copy.biosphere())) * 3)
+                (len(activity_copy.technosphere()) + len(activity_copy.biosphere())) * 2)
         for actual_param, expected_param in zip(ProjectParameter.select(), expected_params):
             assert set(actual_param.dict.keys()) == set(expected_param.keys())
             for key in actual_param.dict.keys():

@@ -142,7 +142,7 @@ def import_foreground(file_path: str,
 
             _create_exchange(parent_act=act, provider_act=exc_act, type_=exc_type,
                              amount=amount, unit=row["Unit"], group=row["Group"],
-                             uncertainty_type=row["Uncertainty Type"],
+                             uncertainty_type=UNCERTAINTY_TYPES_MAP[row["Uncertainty Type"]],
                              uncertainty_location=row["Uncertainty Location"],
                              uncertainty_scale=row["Uncertainty Scale"],
                              uncertainty_shape=row["Uncertainty Shape"],
@@ -185,46 +185,39 @@ def copy_ecoinvent_activity(activity: bd.backends.proxies.Activity,
                         exc["pedigree"]["temporal correlation"],
                         exc["pedigree"]["geographical correlation"],
                         exc["pedigree"]["further technological correlation"],)
-            data_quality_uncertainty = _uncertainty_from_pedigree_matrix(dq_tuple)
         else:
-            data_quality_uncertainty = stats_arrays.UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.NoUncertainty.id,
-                                                                                "loc": 1})
-        param_data_quality = {"name": f"exc_dq_{exc.input.id}_{new_act.id}",
-                              "amount": 1.0,
-                              "nominal": 1.0,
-                              "uncertainty": data_quality_uncertainty, }
+            dq_tuple = (1, 1, 1, 1, 1)
 
         if exc["uncertainty type"] == stats_arrays.UndefinedUncertainty.id:
-            amount_uncertainty = UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.UndefinedUncertainty.id,
-                                                             "loc": exc["loc"], })
+            uncertainty_type = stats_arrays.NoUncertainty.id
+            uncertainty_location = exc["loc"]
+            uncertainty_scale = None
         elif exc["uncertainty type"] == stats_arrays.LognormalUncertainty.id:
             if exc["scale without pedigree"] > 0:
-                amount_uncertainty = UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.LognormalUncertainty.id,
-                                                                              "loc": exc["loc"],
-                                                                              "scale": exc["scale without pedigree"],})
+                uncertainty_type = stats_arrays.LognormalUncertainty.id
+                uncertainty_location = exc["loc"]
+                uncertainty_scale = exc["scale without pedigree"]
             else:
-                amount_uncertainty = UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.NoUncertainty.id,
-                                                                 "loc": exc.amount,})
+                uncertainty_type = stats_arrays.NoUncertainty.id
+                uncertainty_location = exc.amount
+                uncertainty_scale = None
         elif exc["uncertainty type"] == stats_arrays.NormalUncertainty.id:
-            amount_uncertainty = UncertaintyBase.from_dicts({"uncertainty_type": stats_arrays.NormalUncertainty.id,
-                                                             "loc": exc["loc"],
-                                                             "scale": exc["scale without pedigree"], })
+            uncertainty_type = stats_arrays.NormalUncertainty.id
+            uncertainty_location = exc["loc"]
+            uncertainty_scale = exc["scale without pedigree"]
         else:
             raise ValueError(f"Unsupported uncertainty type: {exc["uncertainty type"]}")
-        param_amount = {"name": f"exc_amount_{exc.input.id}_{new_act.id}",
-                        "amount": exc.amount,
-                        "nominal": exc.amount,
-                        "uncertainty": amount_uncertainty, }
-        param_exc = {"name": f"exc_{exc.input.id}_{new_act.id}",
-                     "formula": f"{param_data_quality["name"]}*{param_amount["name"]}"}
-        new_act.new_edge(amount=1,
-                         formula=param_exc["name"],
-                         unit=exc.unit,
-                         input=exc.input,
-                         type=exc["type"]).save()
-        bd.parameters.new_project_parameters([param_data_quality,
-                                              param_amount,
-                                              param_exc])
+
+        _create_exchange(parent_act=new_act, provider_act=exc.input, type_=exc["type"],
+                         amount=exc.amount, unit=exc.unit,
+                         uncertainty_type=uncertainty_type,
+                         uncertainty_location=uncertainty_location,
+                         uncertainty_scale=uncertainty_scale,
+                         uncertainty_shape=None,
+                         uncertainty_min=None,
+                         uncertainty_max=None,
+                         data_quality_tuple=dq_tuple,
+                         data_quality_system="ecoinvent3")
 
     bd.parameters.add_exchanges_to_group("group", new_act)
     ActivityParameter.recalculate_exchanges("group")
@@ -293,7 +286,7 @@ def _create_exchange(parent_act: bd.backends.Activity,
                      type_: str,
                      amount: float,
                      unit: str,
-                     uncertainty_type: str,
+                     uncertainty_type: int,
                      uncertainty_location: float,
                      uncertainty_scale: float,
                      uncertainty_shape: float,
@@ -333,13 +326,13 @@ def _create_exchange(parent_act: bd.backends.Activity,
     else:
         param_amount["amount"] = amount
         param_amount["nominal"] = amount
-        if UNCERTAINTY_TYPES_MAP[uncertainty_type] in [stats_arrays.UndefinedUncertainty.id,
+        if uncertainty_type in [stats_arrays.UndefinedUncertainty.id,
                                                               stats_arrays.NoUncertainty.id, ]:
             loc = amount
         else:
             loc = uncertainty_location
         param_amount["uncertainty"] = UncertaintyBase.from_dicts(
-            {"uncertainty_type": UNCERTAINTY_TYPES_MAP[uncertainty_type],
+            {"uncertainty_type": uncertainty_type,
              "loc": loc,
              "scale": uncertainty_scale,
              "shape": uncertainty_shape,
