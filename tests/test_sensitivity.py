@@ -10,7 +10,7 @@ import bw2calc as bc
 import pytest
 
 # import your own module
-from lcatoolbox import (global_sensitivity_analysis, run_monte_carlo, local_sensitivity_analysis, import_foreground,
+from lcatoolbox import (uncertainty_apportioning, OLD_global_sensitivity_analysis, run_monte_carlo, local_sensitivity_analysis, import_foreground,
                         ScoresDict, ParametersDict, act_tuple)
 from setup_bw_project import setup_brightway, imported_activities
 
@@ -72,10 +72,10 @@ class TestSensitivity:
         return parameters
 
     def test_global_sensitivity_analysis(self, scores, scores_background, parameters):
-        results = global_sensitivity_analysis(scores, scores_background, parameters,
-                                                 algorithm="main_effect_li_2016_alg_1",
-                                                 n_bins=10,
-                                              ignore_dependent=False)
+        results = OLD_global_sensitivity_analysis(scores, scores_background, parameters,
+                                                  algorithm="main_effect_li_2016_alg_1",
+                                                  n_bins=10,
+                                                  ignore_dependent=False)
         activities = list(scores.keys())
         background_activities = list(scores_background.keys())
         impact_categories = list(scores[activities[0]].keys())
@@ -110,15 +110,15 @@ class TestSensitivity:
         activities_tuples = list(scores.keys())
         impact_categories = list(scores[activities_tuples[0]].keys())
 
-        results = global_sensitivity_analysis(scores, scores_background, parameters,
-                                                 algorithm="main_effect_li_2016_alg_1",
-                                                 n_bins=10,
-                                              ignore_dependent=False)
+        results = OLD_global_sensitivity_analysis(scores, scores_background, parameters,
+                                                  algorithm="main_effect_li_2016_alg_1",
+                                                  n_bins=10,
+                                                  ignore_dependent=False)
 
-        results_ignore_dependent = global_sensitivity_analysis(scores, scores_background, parameters,
-                                              algorithm="main_effect_li_2016_alg_1",
-                                              n_bins=10,
-                                              ignore_dependent=True)
+        results_ignore_dependent = OLD_global_sensitivity_analysis(scores, scores_background, parameters,
+                                                                   algorithm="main_effect_li_2016_alg_1",
+                                                                   n_bins=10,
+                                                                   ignore_dependent=True)
 
         assert (len(results_ignore_dependent[activities_tuples[0]][impact_categories[0]]) <
                 len(results[activities_tuples[0]][impact_categories[0]]))
@@ -169,3 +169,51 @@ class TestSensitivity:
                 results[act_tuple(activities[0])][impact_categories[0]][parameters[1]]["sensitivity"])
         assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["elasticity"] !=
                 results[act_tuple(activities[0])][impact_categories[0]][parameters[1]]["elasticity"])
+
+    def test_uncertainty_apportioning(self, imported_activities):
+        activities = imported_activities
+        impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'water use',
+                              'user deprivation potential (deprivation-weighted water consumption)')]
+        parameters = ["some_random_value", "what_a_waste"]
+
+        # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
+        # Why? I don't know...
+        _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
+
+        results = uncertainty_apportioning(activities,
+                                             impact_categories,
+                                           2)
+
+        # Check format
+        assert set(results.keys()) == set([act_tuple(act) for act in activities])
+        for act_results in results.values():
+            assert set(act_results.keys()) == set(impact_categories)
+            for ic_results in act_results.values():
+                assert set(ic_results.keys()) == set(["S1", "S1_conf", "S2", "S2_conf", "ST", "ST_conf"])
+                assert hasattr(ic_results, "problem")
+
+        # S1, S2, and ST differ
+        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S1"],
+                                  results[act_tuple(activities[0])][impact_categories[0]]["S2"])
+        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S1"],
+                                  results[act_tuple(activities[0])][impact_categories[0]]["ST"])
+        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S2"],
+                                  results[act_tuple(activities[0])][impact_categories[0]]["ST"])
+
+        # Different values for different activities
+        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S1"],
+                                  results[act_tuple(activities[1])][impact_categories[0]]["S1"])
+        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S2"],
+                                  results[act_tuple(activities[1])][impact_categories[0]]["S2"])
+        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["ST"],
+                                  results[act_tuple(activities[1])][impact_categories[0]]["ST"])
+
+        # Different values for different impact categories
+        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S1"],
+                                  results[act_tuple(activities[0])][impact_categories[1]]["S1"])
+        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S2"],
+                                  results[act_tuple(activities[0])][impact_categories[1]]["S2"])
+        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["ST"],
+                                  results[act_tuple(activities[0])][impact_categories[1]]["ST"])
