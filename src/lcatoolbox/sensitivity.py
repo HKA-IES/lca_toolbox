@@ -14,8 +14,10 @@ from bw2data.parameters import ProjectParameter
 import stats_arrays
 from SALib.sample import sobol as salib_sample_sobol
 from SALib.sample import fast_sampler as salib_sample_fast
+from SALib.sample import latin as salib_sample_latin
 from SALib.analyze import sobol as salib_analyze_sobol
 from SALib.analyze import fast as salib_analyze_fast
+from SALib.analyze import rbd_fast as salib_analyze_rbd_fast
 
 # import your own module
 from .compute import calculate_scores
@@ -63,16 +65,27 @@ class FASTMethod:
     conf_level: float = 0.95
     print_to_console: bool = False
 
+@dataclass
+class RBDFASTMethod:
+    """
+    RBD-FAST - Random Balance Designs Fourier Amplitude Test
+    """
+    N: int
+    seed: int | np.random.Generator | None = None
+    M: int = 4
+    print_to_console: bool = False
 
-# TODO: Support RBD-FAST (Random Balance Designs Fourier Amplitude Sensitivity Test)
+Method = Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod, RBDFASTMethod]
+
+
 # TODO: Support PAWN
 # TODO: Unified formatting of UA results
 def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                              impact_categories: List[ImpactCategoryTuple],
-                             method: Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod],
+                             method: Method,
                              progress_bar: bool = True)  -> Tuple[Dict[ActivityTuple, Dict[ImpactCategoryTuple, Dict]],
 ScoresDict, ParametersDict]:
-    if isinstance(method, SobolSaltelliMethod) or isinstance(method, FASTMethod):
+    if isinstance(method, SobolSaltelliMethod) or isinstance(method, FASTMethod) or isinstance(method, RBDFASTMethod):
         project_params = [p for p in ProjectParameter.select() if p.formula is None]
         if len(project_params) == 0:
             raise RuntimeError("No parameters in project, so not possible to do uncertainty apportioning.")
@@ -129,6 +142,10 @@ ScoresDict, ParametersDict]:
                                                           N=method.N,
                                                           M=method.M,
                                                           seed=method.seed,)
+        elif isinstance(method, RBDFASTMethod):
+            salib_param_values = salib_sample_latin.sample(salib_problem,
+                                                          N=method.N,
+                                                          seed=method.seed, )
 
         n_iterations = len(salib_param_values)
 
@@ -178,6 +195,13 @@ ScoresDict, ParametersDict]:
                                                           M=method.M,
                                                           num_resamples=method.num_resamples,
                                                           conf_level=method.conf_level,
+                                                          print_to_console=method.print_to_console,
+                                                          seed=method.seed,)
+                elif isinstance(method, RBDFASTMethod):
+                    salib_Si = salib_analyze_rbd_fast.analyze(salib_problem,
+                                                              salib_param_values,
+                                                              salib_Y,
+                                                          M=method.M,
                                                           print_to_console=method.print_to_console,
                                                           seed=method.seed,)
                 ua_results[act][ic] = salib_Si
