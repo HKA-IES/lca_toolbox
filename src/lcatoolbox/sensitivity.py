@@ -10,10 +10,12 @@ from dataclasses import dataclass
 import bw2data as bd
 import pandas as pd
 import numpy as np
-from SALib.sample import sobol as salib_sample_sobol
-from SALib.analyze import sobol as salib_analyze_sobol
 from bw2data.parameters import ProjectParameter
 import stats_arrays
+from SALib.sample import sobol as salib_sample_sobol
+from SALib.sample import fast_sampler as salib_sample_fast
+from SALib.analyze import sobol as salib_analyze_sobol
+from SALib.analyze import fast as salib_analyze_fast
 
 # import your own module
 from .compute import calculate_scores
@@ -31,7 +33,7 @@ class SobolSaltelliMethod:
     skip_values: int = 0
     seed: int | np.random.Generator | None = None
     num_resamples: int = 100
-    conf_level: float = 0.05
+    conf_level: float = 0.95
     print_to_console: bool = False
     parallel: bool = False
     n_processors: int | None = None
@@ -49,19 +51,28 @@ class SobolLi2016Method:
     alg: Literal[1, 2] = 1 # 1 or 2
     ignore_dependent: bool = True
 
+@dataclass
+class FASTMethod:
+    """
+    FAST - Fast Fourier Amplitude Test
+    """
+    N: int
+    M: int = 4
+    seed: int | np.random.Generator | None = None
+    num_resamples: int = 100
+    conf_level: float = 0.95
+    print_to_console: bool = False
 
-def discrete_sensitivity_analysis():
-    raise NotImplementedError
 
-# TODO: Support FAST (Fourier Amplitude Sensitivity Test)
 # TODO: Support RBD-FAST (Random Balance Designs Fourier Amplitude Sensitivity Test)
 # TODO: Support PAWN
+# TODO: Unified formatting of UA results
 def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                              impact_categories: List[ImpactCategoryTuple],
-                             method: Union[SobolSaltelliMethod, SobolLi2016Method],
+                             method: Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod],
                              progress_bar: bool = True)  -> Tuple[Dict[ActivityTuple, Dict[ImpactCategoryTuple, Dict]],
 ScoresDict, ParametersDict]:
-    if isinstance(method, SobolSaltelliMethod):
+    if isinstance(method, SobolSaltelliMethod) or isinstance(method, FASTMethod):
         project_params = [p for p in ProjectParameter.select() if p.formula is None]
         if len(project_params) == 0:
             raise RuntimeError("No parameters in project, so not possible to do uncertainty apportioning.")
@@ -107,13 +118,17 @@ ScoresDict, ParametersDict]:
             salib_problem["num_vars"] += 1
 
         if isinstance(method, SobolSaltelliMethod):
-            salib_param_values = salib_sample_sobol.sample(salib_problem, method.N,
+            salib_param_values = salib_sample_sobol.sample(salib_problem,
+                                                           N=method.N,
                                                            calc_second_order=method.calc_second_order,
                                                            scramble=method.scramble,
                                                            skip_values=method.skip_values,
                                                            seed=method.seed,)
-        else:
-            raise ValueError(f"Unrecognized method '{method}', should be an instance of SobolMethod.")
+        elif isinstance(method, FASTMethod):
+            salib_param_values = salib_sample_fast.sample(salib_problem,
+                                                          N=method.N,
+                                                          M=method.M,
+                                                          seed=method.seed,)
 
         n_iterations = len(salib_param_values)
 
@@ -158,6 +173,13 @@ ScoresDict, ParametersDict]:
                                                            n_processors=method.n_processors,
                                                            keep_resamples=method.keep_resamples,
                                                            seed=method.seed,)
+                elif isinstance(method, FASTMethod):
+                    salib_Si = salib_analyze_fast.analyze(salib_problem, salib_Y,
+                                                          M=method.M,
+                                                          num_resamples=method.num_resamples,
+                                                          conf_level=method.conf_level,
+                                                          print_to_console=method.print_to_console,
+                                                          seed=method.seed,)
                 ua_results[act][ic] = salib_Si
         return ua_results, scores, parameters
     elif isinstance(method, SobolLi2016Method):
@@ -202,6 +224,59 @@ ScoresDict, ParametersDict]:
         scores_combined = dict(scores)
         scores_combined.update(scores_background)
         return ua_results, scores_combined, parameters
+    else:
+        raise ValueError("Unsupported method. Should be one of SobolSaltelliMethod, SobolLi2016Method, FASTMethod.")
+
+def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
+                               impact_categories: List[ImpactCategoryTuple],
+                               parameters: List[str],
+                               perturbation_size: float = 0.01) -> Dict[ActivityTuple, Dict[ImpactCategoryTuple, Dict[str, Dict[str, float]]]]:
+    """
+    For each parameter and each score, we compute the sensitivity and elasticity according to the following formulas:
+
+    sensitivity = (score_perturbed - score_nominal) / (parameter_perturbed - parameter_nominal)
+    elasticity = (parameter_nominal / score_nominal) * sensitivity
+    """
+    # First compute nominal scores
+    scores_nominal, parameters_nominal = calculate_scores(activities,
+                                  impact_categories,
+                                  parameters={},
+                                  use_exchange_distributions=False,
+                                  use_parameters_distributions=False,)
+
+    results = {}
+    for act in activities:
+        results[act_tuple(act)] = {}
+        for ic in impact_categories:
+            results[act_tuple(act)][ic] = {}
+
+    for param in parameters:
+        if not param in list(parameters_nominal.keys()):
+            raise ValueError(f"Parameter {param} not found in the model.")
+
+        param_nominal = parameters_nominal[param]["values"][0]
+        param_perturbed = (1+perturbation_size) * param_nominal
+
+        scores_perturbed, _ = calculate_scores(activities,
+                                                impact_categories,
+                                                parameters={param: param_perturbed},
+                                                use_exchange_distributions=False,
+                                                use_parameters_distributions=False,)
+
+        for act in activities:
+            for ic in impact_categories:
+                score_nominal = scores_nominal[act_tuple(act)][ic][0]
+                score_perturbed = scores_perturbed[act_tuple(act)][ic][0]
+                sensitivity = ((score_perturbed - score_nominal)
+                               / (param_perturbed - param_nominal))
+                elasticity = (param_nominal / score_nominal) * sensitivity
+                results[act_tuple(act)][ic][param] = {"sensitivity": sensitivity,
+                                                      "elasticity": elasticity}
+
+    return results
+
+def discrete_sensitivity_analysis():
+    raise NotImplementedError
 
 def _print_uncertainty_apportioning_progress(iteration: int, total: int, seconds_elapsed: float, seconds_remaining: float):
     # Adapted from https://stackoverflow.com/questions/3173320/text-progress-bar-in-terminal-with-block-characters
@@ -255,54 +330,3 @@ def _main_effect_li_2016_alg_2(x: np.ndarray, y: np.ndarray, M: int):
     V_y = [np.var(y[x_arg_sorted[m * intervals_length:(m+1)*intervals_length]], ddof=1) for m in range(M)]
     S = 1 - (np.mean(V_y) / np.var(y[:M*intervals_length], ddof=1))
     return S
-
-GSA_ALGORITHMS = {"main_effect_li_2016_alg_1": _main_effect_li_2016_alg_1,
-                  "main_effect_li_2016_alg_2": _main_effect_li_2016_alg_2}
-
-def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
-                               impact_categories: List[ImpactCategoryTuple],
-                               parameters: List[str],
-                               perturbation_size: float = 0.01) -> Dict[ActivityTuple, Dict[ImpactCategoryTuple, Dict[str, Dict[str, float]]]]:
-    """
-    For each parameter and each score, we compute the sensitivity and elasticity according to the following formulas:
-
-    sensitivity = (score_perturbed - score_nominal) / (parameter_perturbed - parameter_nominal)
-    elasticity = (parameter_nominal / score_nominal) * sensitivity
-    """
-    # First compute nominal scores
-    scores_nominal, parameters_nominal = calculate_scores(activities,
-                                  impact_categories,
-                                  parameters={},
-                                  use_exchange_distributions=False,
-                                  use_parameters_distributions=False,)
-
-    results = {}
-    for act in activities:
-        results[act_tuple(act)] = {}
-        for ic in impact_categories:
-            results[act_tuple(act)][ic] = {}
-
-    for param in parameters:
-        if not param in list(parameters_nominal.keys()):
-            raise ValueError(f"Parameter {param} not found in the model.")
-
-        param_nominal = parameters_nominal[param]["values"][0]
-        param_perturbed = (1+perturbation_size) * param_nominal
-
-        scores_perturbed, _ = calculate_scores(activities,
-                                                impact_categories,
-                                                parameters={param: param_perturbed},
-                                                use_exchange_distributions=False,
-                                                use_parameters_distributions=False,)
-
-        for act in activities:
-            for ic in impact_categories:
-                score_nominal = scores_nominal[act_tuple(act)][ic][0]
-                score_perturbed = scores_perturbed[act_tuple(act)][ic][0]
-                sensitivity = ((score_perturbed - score_nominal)
-                               / (param_perturbed - param_nominal))
-                elasticity = (param_nominal / score_nominal) * sensitivity
-                results[act_tuple(act)][ic][param] = {"sensitivity": sensitivity,
-                                                      "elasticity": elasticity}
-
-    return results
