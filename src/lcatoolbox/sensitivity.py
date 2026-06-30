@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
 # import built-in module
-from typing import List, Dict
+from typing import List, Dict, Union, Tuple
 import warnings
 import time
+from dataclasses import dataclass
 
 # import third-party modules
 import bw2data as bd
@@ -19,6 +20,22 @@ from .compute import calculate_scores
 from .types import (ScoresDict, ParametersDict, ActivityTuple, ImpactCategoryTuple, act_tuple, concat_scores_dicts,
                     concat_parameters_dicts)
 
+@dataclass
+class SobolMethod:
+    # See SALib documentation for parameters definition
+    # https://salib.readthedocs.io/en/latest/api.html#sobol-sensitivity-analysis
+    N: int
+    calc_second_order: bool = True
+    scramble: bool = True
+    skip_values: int = 0
+    seed: int | np.random.Generator | None = None
+    num_resamples: int = 100
+    conf_level: float = 0.05
+    print_to_console: bool = False
+    parallel: bool = False
+    n_processors: int | None = None
+    keep_resamples: bool = False
+
 
 def discrete_sensitivity_analysis():
     raise NotImplementedError
@@ -27,10 +44,10 @@ def discrete_sensitivity_analysis():
 # TODO: Support RBD-FAST (Random Balance Designs Fourier Amplitude Sensitivity Test)
 # TODO: Support PAWN
 def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
-                    impact_categories: List[ImpactCategoryTuple],
-                             N,
-                    progress_bar: bool = True
-                             )  -> Dict[ActivityTuple, Dict[ImpactCategoryTuple, Dict]]:
+                             impact_categories: List[ImpactCategoryTuple],
+                             method: Union[SobolMethod],
+                             progress_bar: bool = True)  -> Tuple[Dict[ActivityTuple, Dict[ImpactCategoryTuple, Dict]],
+ScoresDict, ParametersDict]:
     project_params = [p for p in ProjectParameter.select() if p.formula is None]
     if len(project_params) == 0:
         raise RuntimeError("No parameters in project, so not possible to do uncertainty apportioning.")
@@ -43,14 +60,9 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
     }
 
     for p in project_params:
-
         # TODO: Verify proper conversion.
         p_uncertainty = p.data["uncertainty"]
-        if p_uncertainty["uncertainty_type"] in [stats_arrays.UndefinedUncertainty.id,
-                                                 stats_arrays.NoUncertainty.id]:
-            # Ignore because no bounds.
-            continue
-        elif p_uncertainty["uncertainty_type"] == stats_arrays.UniformUncertainty.id:
+        if p_uncertainty["uncertainty_type"] == stats_arrays.UniformUncertainty.id:
             salib_problem['dists'].append("unif")
             salib_problem['bounds'].append([p_uncertainty["minimum"][0], p_uncertainty["maximum"][0]])
         elif p_uncertainty["uncertainty_type"] == stats_arrays.TriangularUncertainty.id:
@@ -75,25 +87,26 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
             salib_problem['bounds'].append([p_uncertainty["shape"][0], p_uncertainty["scale"][0],
                                             p_uncertainty["loc"][0]])
         else:
-            warnings.warn("Uncertainty with id={} not supported for uncertainty apportioning. "
-                          "Defaulting to uniform bounded distribution.")
-            if not np.isnan(p_uncertainty["minimum"]) and not np.isnan(p_uncertainty["maximum"]):
-                salib_problem['dists'].append("unif")
-                salib_problem['bounds'].append([p_uncertainty["minimum"][0], p_uncertainty["maximum"][0],
-                                                p_uncertainty["loc"][0], p_uncertainty["scale"][0]])
-            else:
-                # Ignored because no bounds
-                continue
+            warnings.warn(f"Parameter {p.name} ignored because it uses an unsupported uncertainty type.")
+            continue
         salib_problem['names'].append(p.name)
         salib_problem["num_vars"] += 1
 
-    salib_param_values = salib_sample_sobol.sample(salib_problem, N)
+    if isinstance(method, SobolMethod):
+        salib_param_values = salib_sample_sobol.sample(salib_problem, method.N,
+                                                       calc_second_order=method.calc_second_order,
+                                                       scramble=method.scramble,
+                                                       skip_values=method.skip_values,
+                                                       seed=method.seed,)
+    else:
+        raise ValueError(f"Unrecognized method '{method}', should be an instance of SobolMethod.")
+
     n_iterations = len(salib_param_values)
 
     # first iteration to generate scores, parameters
     start_time = time.time()
     param_values = {name: values for name, values in zip(salib_problem["names"], salib_param_values[0])}
-    scores, _ = calculate_scores(activities,
+    scores, parameters = calculate_scores(activities,
                                           impact_categories,
                                           param_values)
     elapsed = time.time() - start_time
@@ -104,26 +117,36 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
     for i in range(1, len(salib_param_values)):
         param_values = {name: values for name, values in zip(salib_problem["names"], salib_param_values[i])}
 
-        scores_i, _ = calculate_scores(activities,
+        scores_i, parameters_i = calculate_scores(activities,
                                                   impact_categories,
                                                   param_values)
 
         scores = concat_scores_dicts(scores, scores_i)
+        parameters = concat_parameters_dicts(parameters, parameters_i)
 
         elapsed = time.time() - start_time
         remaining = elapsed / (i+1) * (n_iterations - i + 1)
         if progress_bar:
             _print_uncertainty_apportioning_progress(i, n_iterations, elapsed, remaining)
 
-    results = {}
+    ua_results = {}
     for act in scores.keys():
-        results[act] = {}
+        ua_results[act] = {}
         for ic in scores[act].keys():
             salib_Y = np.array(scores[act][ic])
-            salib_Si = salib_analyze_sobol.analyze(salib_problem, salib_Y)
-            results[act][ic] = salib_Si
+            if isinstance(method, SobolMethod):
+                salib_Si = salib_analyze_sobol.analyze(salib_problem, salib_Y,
+                                                       calc_second_order=method.calc_second_order,
+                                                       num_resamples=method.num_resamples,
+                                                       conf_level=method.conf_level,
+                                                       print_to_console=method.print_to_console,
+                                                       parallel=method.parallel,
+                                                       n_processors=method.n_processors,
+                                                       keep_resamples=method.keep_resamples,
+                                                       seed=method.seed,)
+            ua_results[act][ic] = salib_Si
 
-    return results
+    return ua_results, scores, parameters
 
 def _print_uncertainty_apportioning_progress(iteration: int, total: int, seconds_elapsed: float, seconds_remaining: float):
     # Adapted from https://stackoverflow.com/questions/3173320/text-progress-bar-in-terminal-with-block-characters

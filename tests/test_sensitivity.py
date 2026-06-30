@@ -11,7 +11,7 @@ import pytest
 
 # import your own module
 from lcatoolbox import (uncertainty_apportioning, OLD_global_sensitivity_analysis, run_monte_carlo, local_sensitivity_analysis, import_foreground,
-                        ScoresDict, ParametersDict, act_tuple)
+                        ScoresDict, ParametersDict, act_tuple, SobolMethod)
 from setup_bw_project import setup_brightway, imported_activities
 
 class TestSensitivity:
@@ -176,44 +176,43 @@ class TestSensitivity:
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
-        parameters = ["some_random_value", "what_a_waste"]
 
         # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
         # Why? I don't know...
         _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
-        results = uncertainty_apportioning(activities,
+        ua, _, _ = uncertainty_apportioning(activities,
                                              impact_categories,
-                                           2)
+                                           SobolMethod(N=2))
 
         # Check format
-        assert set(results.keys()) == set([act_tuple(act) for act in activities])
-        for act_results in results.values():
-            assert set(act_results.keys()) == set(impact_categories)
-            for ic_results in act_results.values():
-                assert set(ic_results.keys()) == set(["S1", "S1_conf", "S2", "S2_conf", "ST", "ST_conf"])
-                assert hasattr(ic_results, "problem")
+        assert set(ua.keys()) == set([act_tuple(act) for act in activities])
+        for act_ua in ua.values():
+            assert set(act_ua.keys()) == set(impact_categories)
+            for ic_ua in act_ua.values():
+                assert set(ic_ua.keys()) == set(["S1", "S1_conf", "S2", "S2_conf", "ST", "ST_conf"])
+                assert hasattr(ic_ua, "problem")
 
         # S1, S2, and ST differ
-        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  results[act_tuple(activities[0])][impact_categories[0]]["S2"])
-        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  results[act_tuple(activities[0])][impact_categories[0]]["ST"])
-        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S2"],
-                                  results[act_tuple(activities[0])][impact_categories[0]]["ST"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
+                                  ua[act_tuple(activities[0])][impact_categories[0]]["S2"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
+                                  ua[act_tuple(activities[0])][impact_categories[0]]["ST"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S2"],
+                                  ua[act_tuple(activities[0])][impact_categories[0]]["ST"])
 
         # Different values for different activities
-        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  results[act_tuple(activities[1])][impact_categories[0]]["S1"])
-        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S2"],
-                                  results[act_tuple(activities[1])][impact_categories[0]]["S2"])
-        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["ST"],
-                                  results[act_tuple(activities[1])][impact_categories[0]]["ST"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
+                                  ua[act_tuple(activities[1])][impact_categories[0]]["S1"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S2"],
+                                  ua[act_tuple(activities[1])][impact_categories[0]]["S2"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["ST"],
+                                  ua[act_tuple(activities[1])][impact_categories[0]]["ST"])
 
         # Different values for different impact categories
-        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  results[act_tuple(activities[0])][impact_categories[1]]["S1"])
-        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["S2"],
-                                  results[act_tuple(activities[0])][impact_categories[1]]["S2"])
-        assert not np.array_equal(results[act_tuple(activities[0])][impact_categories[0]]["ST"],
-                                  results[act_tuple(activities[0])][impact_categories[1]]["ST"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
+                                  ua[act_tuple(activities[0])][impact_categories[1]]["S1"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S2"],
+                                  ua[act_tuple(activities[0])][impact_categories[1]]["S2"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["ST"],
+                                  ua[act_tuple(activities[0])][impact_categories[1]]["ST"])
