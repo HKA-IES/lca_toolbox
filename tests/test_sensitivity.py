@@ -10,7 +10,7 @@ import pytest
 
 # import your own module
 from lcatoolbox import (uncertainty_apportioning, local_sensitivity_analysis, act_tuple, SobolSaltelliMethod,
-                        SobolLi2016Method, FASTMethod, RBDFASTMethod)
+                        SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod)
 from setup_bw_project import setup_brightway, imported_activities
 
 class TestSensitivity:
@@ -131,6 +131,44 @@ class TestSensitivity:
         # Different values for different impact categories
         assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
                                   ua[act_tuple(activities[0])][impact_categories[1]]["S1"])
+
+    def test_uncertainty_apportioning_pawn(self, imported_activities):
+        activities = imported_activities
+        impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'water use',
+                              'user deprivation potential (deprivation-weighted water consumption)')]
+
+        # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
+        # Why? I don't know...
+        _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
+
+        ua, _, _ = uncertainty_apportioning(activities,
+                                            impact_categories,
+                                            PAWNMethod(N=20))
+
+        # Check format
+        assert set(ua.keys()) == set([act_tuple(act) for act in activities])
+        for act_ua in ua.values():
+            assert set(act_ua.keys()) == set(impact_categories)
+            for ic_ua in act_ua.values():
+                assert set(ic_ua.keys()) == set(["minimum", "mean", "median", "maximum", "CV", "stdev", "names"])
+
+        # median, CV differ
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["CV"],
+                                  ua[act_tuple(activities[0])][impact_categories[0]]["median"])
+
+        # Different values for different activities
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["CV"],
+                                  ua[act_tuple(activities[1])][impact_categories[0]]["CV"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["median"],
+                                  ua[act_tuple(activities[1])][impact_categories[0]]["median"])
+
+        # Different values for different impact categories
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["CV"],
+                                  ua[act_tuple(activities[0])][impact_categories[1]]["CV"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["median"],
+                                  ua[act_tuple(activities[0])][impact_categories[1]]["median"])
 
     def test_uncertainty_apportioning_sobol_li_2016(self, imported_activities):
         activities = imported_activities
