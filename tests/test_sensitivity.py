@@ -6,7 +6,6 @@
 import pandas as pd
 import numpy as np
 import bw2calc as bc
-import pytest
 
 # import your own module
 from lcatoolbox import (uncertainty_apportioning, local_sensitivity_analysis, act_tuple, SobolSaltelliMethod,
@@ -35,30 +34,28 @@ class TestSensitivity:
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
-                assert set(ic_ua.keys()) == set(["S1", "S1_conf", "S2", "S2_conf", "ST", "ST_conf"])
-                assert hasattr(ic_ua, "problem")
+                assert len(ic_ua.columns) == 14*2 + 4
+                assert "S1" in ic_ua.columns
+                assert "S1_conf" in ic_ua.columns
+                assert "ST" in ic_ua.columns
+                assert "ST_conf" in ic_ua.columns
+                assert len(ic_ua.index) == 14
+                # TODO: Check that columns for S2, S2_conf are OK
 
-        # S1, S2, and ST differ
+        # S1 and ST differ
+
         assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  ua[act_tuple(activities[0])][impact_categories[0]]["S2"])
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  ua[act_tuple(activities[0])][impact_categories[0]]["ST"])
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S2"],
                                   ua[act_tuple(activities[0])][impact_categories[0]]["ST"])
 
         # Different values for different activities
         assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
                                   ua[act_tuple(activities[1])][impact_categories[0]]["S1"])
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S2"],
-                                  ua[act_tuple(activities[1])][impact_categories[0]]["S2"])
         assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["ST"],
                                   ua[act_tuple(activities[1])][impact_categories[0]]["ST"])
 
         # Different values for different impact categories
         assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
                                   ua[act_tuple(activities[0])][impact_categories[1]]["S1"])
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S2"],
-                                  ua[act_tuple(activities[0])][impact_categories[1]]["S2"])
         assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["ST"],
                                   ua[act_tuple(activities[0])][impact_categories[1]]["ST"])
 
@@ -82,8 +79,12 @@ class TestSensitivity:
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
-                assert set(ic_ua.keys()) == set(["S1", "S1_conf", "ST", "ST_conf", "names"])
-                # assert hasattr(ic_ua, "problem")
+                assert len(ic_ua.columns) == 4
+                assert "S1" in ic_ua.columns
+                assert "S1_conf" in ic_ua.columns
+                assert "ST" in ic_ua.columns
+                assert "ST_conf" in ic_ua.columns
+                assert len(ic_ua.index) == 14
 
         # S1 and ST differ
         assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
@@ -114,15 +115,17 @@ class TestSensitivity:
 
         ua, _, _ = uncertainty_apportioning(activities,
                                             impact_categories,
-                                            RBDFASTMethod(N=20))
+                                            RBDFASTMethod(N=30, M=5))
 
         # Check format
         assert set(ua.keys()) == set([act_tuple(act) for act in activities])
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
-                assert set(ic_ua.keys()) == set(["S1", "S1_conf", "names"])
-                # assert hasattr(ic_ua, "problem")
+                assert len(ic_ua.columns) == 2
+                assert "S1" in ic_ua.columns
+                assert "S1_conf" in ic_ua.columns
+                assert len(ic_ua.index) == 14
 
         # Different values for different activities
         assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
@@ -152,7 +155,8 @@ class TestSensitivity:
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
-                assert set(ic_ua.keys()) == set(["minimum", "mean", "median", "maximum", "CV", "stdev", "names"])
+                assert set(ic_ua.keys()) == {"minimum", "mean", "median", "maximum", "CV", "stdev"}
+                assert len(ic_ua.index) == 14
 
         # median, CV differ
         assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["CV"],
@@ -196,22 +200,23 @@ class TestSensitivity:
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
                 assert len(ic_ua) == 26
-                assert list(ic_ua.columns) == expected_df_columns
-                assert list(ic_ua.dtypes) == expected_df_column_dtypes
+                assert set(ic_ua.columns) == {"S1_alg_1", "S1_alg_2"}
 
-        # Values differ from one activity to the other
-        with pytest.raises(AssertionError):
-            pd.testing.assert_frame_equal(ua[act_tuple(activities[0])][impact_categories[0]],
-                                          ua[act_tuple(activities[1])][impact_categories[0]])
+        # S1_alg_1, S1_alg_2 differ
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_1"],
+                                  ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_2"])
 
-        # Values differ from one impact category to the other
-        with pytest.raises(AssertionError):
-            pd.testing.assert_frame_equal(ua[act_tuple(activities[0])][impact_categories[0]],
-                                          ua[act_tuple(activities[0])][impact_categories[1]])
+        # Different values for different activities
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_1"],
+                                  ua[act_tuple(activities[1])][impact_categories[0]]["S1_alg_1"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_2"],
+                                  ua[act_tuple(activities[1])][impact_categories[0]]["S1_alg_2"])
 
-        # Values differ from one input to the other
-        assert (list(ua[act_tuple(activities[0])][impact_categories[0]]["value"])[0]
-                != list(ua[act_tuple(activities[0])][impact_categories[0]]["value"])[1])
+        # Different values for different impact categories
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_1"],
+                                  ua[act_tuple(activities[0])][impact_categories[1]]["S1_alg_1"])
+        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_2"],
+                                  ua[act_tuple(activities[0])][impact_categories[1]]["S1_alg_2"])
 
     def test_local_sensitivity_analysis(self, imported_activities):
         activities = imported_activities

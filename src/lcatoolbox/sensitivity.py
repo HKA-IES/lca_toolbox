@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # import built-in module
-from typing import List, Dict, Union, Tuple, Literal
+from typing import List, Dict, Union, Tuple
 import warnings
 import time
 from dataclasses import dataclass
@@ -51,7 +51,6 @@ class SobolLi2016Method:
     """
     N: int
     n_bins: int
-    alg: Literal[1, 2] = 1 # 1 or 2
     ignore_dependent: bool = True
 
 @dataclass
@@ -89,11 +88,10 @@ class PAWNMethod:
 Method = Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod]
 
 
-# TODO: Unified formatting of UA results
 def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                              impact_categories: List[ImpactCategoryTuple],
                              method: Method,
-                             progress_bar: bool = True)  -> Tuple[Dict[ActivityTuple, Dict[ImpactCategoryTuple, Dict]],
+                             progress_bar: bool = True)  -> Tuple[Dict[ActivityTuple, Dict[ImpactCategoryTuple, pd.DataFrame]],
 ScoresDict, ParametersDict]:
     if (isinstance(method, SobolSaltelliMethod) or
             isinstance(method, FASTMethod) or
@@ -203,6 +201,14 @@ ScoresDict, ParametersDict]:
                                                            n_processors=method.n_processors,
                                                            keep_resamples=method.keep_resamples,
                                                            seed=method.seed,)
+                    S2_symmetric = np.nansum(np.dstack([salib_Si["S2"].T, salib_Si["S2"]]), 2)
+                    S2_conf_symmetric = np.nansum(np.dstack([salib_Si["S2_conf"].T, salib_Si["S2_conf"]]), 2)
+                    ua_results[act][ic] = pd.DataFrame(data=np.concatenate([np.stack([salib_Si["S1"], salib_Si["S1_conf"], salib_Si["ST"],
+                                                                      salib_Si["ST_conf"]], axis=-1), S2_symmetric, S2_conf_symmetric], axis=1),
+                                                       columns=["S1", "S1_conf", "ST", "ST_conf"] +
+                                                               [f"S2_{name}" for name in salib_Si.problem["names"]] +
+                                                               [f"S2_conf_{name}" for name in salib_Si.problem["names"]],
+                                                       index=salib_Si.problem["names"])
                 elif isinstance(method, FASTMethod):
                     salib_Si = salib_analyze_fast.analyze(salib_problem, salib_Y,
                                                           M=method.M,
@@ -210,6 +216,10 @@ ScoresDict, ParametersDict]:
                                                           conf_level=method.conf_level,
                                                           print_to_console=method.print_to_console,
                                                           seed=method.seed,)
+                    ua_results[act][ic] = pd.DataFrame(data=np.stack([salib_Si["S1"], salib_Si["S1_conf"], salib_Si["ST"],
+                                                                      salib_Si["ST_conf"]], axis=-1),
+                                                       columns=["S1", "S1_conf", "ST", "ST_conf"],
+                                                       index=salib_Si["names"])
                 elif isinstance(method, RBDFASTMethod):
                     salib_Si = salib_analyze_rbd_fast.analyze(salib_problem,
                                                               salib_param_values,
@@ -217,6 +227,10 @@ ScoresDict, ParametersDict]:
                                                           M=method.M,
                                                           print_to_console=method.print_to_console,
                                                           seed=method.seed,)
+                    ua_results[act][ic] = pd.DataFrame(
+                        data=np.stack([salib_Si["S1"], salib_Si["S1_conf"]], axis=-1),
+                        columns=["S1", "S1_conf"],
+                        index=salib_Si["names"])
                 elif isinstance(method, PAWNMethod):
                     salib_Si = salib_analyze_pawn.analyze(salib_problem,
                                                               salib_param_values,
@@ -224,15 +238,14 @@ ScoresDict, ParametersDict]:
                                                           S=method.S,
                                                           print_to_console=method.print_to_console,
                                                           seed=method.seed,)
-                ua_results[act][ic] = salib_Si
+                    ua_results[act][ic] = pd.DataFrame(
+                        data=np.stack([salib_Si["minimum"], salib_Si["mean"], salib_Si["median"],
+                                       salib_Si["maximum"], salib_Si["CV"], salib_Si["stdev"]], axis=-1),
+                        columns=["minimum", "mean", "median", "maximum", "CV", "stdev"],
+                        index=salib_Si["names"])
         return ua_results, scores, parameters
     elif isinstance(method, SobolLi2016Method):
         # TODO: Integrate the Monte-Carlo-based estimations more cleanly.
-        if method.alg == 1:
-            alg_fn = _main_effect_li_2016_alg_1
-        elif method.alg == 2:
-            alg_fn = _main_effect_li_2016_alg_2
-
         scores, scores_background, parameters = run_monte_carlo(activities,
                                                                 impact_categories,
                                                                 n_iterations=method.N,
@@ -246,24 +259,27 @@ ScoresDict, ParametersDict]:
         for act in activities:
             ua_results[act] = {}
             for ic in impact_categories:
-                raw_df = []
+                data = []
+                index = []
                 y = scores[act][ic]
-                for bact in background_activities:
-                    x = scores_background[bact][ic]
-                    s = alg_fn(np.array(x), np.array(y), method.n_bins)
-                    raw_df.append({"name": str(bact),
-                                   "type": "background",
-                                   "value": s})
                 for param in parameters.keys():
                     if method.ignore_dependent and parameters[param]["type"] == "dependent":
                         continue
 
                     x = parameters[param]["values"]
-                    s = alg_fn(np.array(x), np.array(y), method.n_bins)
-                    raw_df.append({"name": param,
-                                   "type": "parameter",
-                                   "value": s})
-                ua_results[act][ic] = pd.DataFrame(raw_df)
+                    S1_alg_1 = _main_effect_li_2016_alg_1(np.array(x), np.array(y), method.n_bins)
+                    S1_alg_2 = _main_effect_li_2016_alg_2(np.array(x), np.array(y), method.n_bins)
+                    index.append(param)
+                    data.append({"S1_alg_1": S1_alg_1,
+                                   "S1_alg_2": S1_alg_2,})
+                for bact in background_activities:
+                    x = scores_background[bact][ic]
+                    S1_alg_1 = _main_effect_li_2016_alg_1(np.array(x), np.array(y), method.n_bins)
+                    S1_alg_2 = _main_effect_li_2016_alg_2(np.array(x), np.array(y), method.n_bins)
+                    index.append(str(bact))
+                    data.append({"S1_alg_1": S1_alg_1,
+                                   "S1_alg_2": S1_alg_2,})
+                ua_results[act][ic] = pd.DataFrame(data, index=index)
 
         scores_combined = dict(scores)
         scores_combined.update(scores_background)
