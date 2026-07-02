@@ -20,6 +20,7 @@ dependencies = [
     "numpy",
     "pyexcel",
     "pandas",
+    "SALib",
 ]
 license = {file = "LICENSE"}
 
