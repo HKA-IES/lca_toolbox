@@ -87,12 +87,10 @@ class PAWNMethod:
 
 Method = Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod]
 
-
 def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                              impact_categories: List[ImpactCategoryTuple],
                              method: Method,
-                             progress_bar: bool = True)  -> Tuple[Dict[ActivityTuple, Dict[ImpactCategoryTuple, pd.DataFrame]],
-ScoresDict, ParametersDict]:
+                             progress_bar: bool = True)  -> Tuple[pd.DataFrame, ScoresDict, ParametersDict]:
     if (isinstance(method, SobolSaltelliMethod) or
             isinstance(method, FASTMethod) or
             isinstance(method, RBDFASTMethod) or
@@ -186,9 +184,8 @@ ScoresDict, ParametersDict]:
             if progress_bar:
                 _print_uncertainty_apportioning_progress(i, n_iterations, elapsed, remaining)
 
-        ua_results = {}
+        ua_results = []
         for act in scores.keys():
-            ua_results[act] = {}
             for ic in scores[act].keys():
                 salib_Y = np.array(scores[act][ic])
                 if isinstance(method, SobolSaltelliMethod):
@@ -203,16 +200,16 @@ ScoresDict, ParametersDict]:
                                                            seed=method.seed,)
                     S2_symmetric = np.nansum(np.dstack([salib_Si["S2"].T, salib_Si["S2"]]), 2)
                     S2_conf_symmetric = np.nansum(np.dstack([salib_Si["S2_conf"].T, salib_Si["S2_conf"]]), 2)
-                    ua_results[act][ic] = pd.DataFrame(data=np.concatenate([np.stack([salib_Si["S1"], salib_Si["S1_conf"], salib_Si["ST"],
+                    df = pd.DataFrame(data=np.concatenate([np.stack([salib_Si["S1"], salib_Si["S1_conf"], salib_Si["ST"],
                                                                       salib_Si["ST_conf"]], axis=-1), S2_symmetric, S2_conf_symmetric], axis=1),
                                                        columns=["S1", "S1_conf", "ST", "ST_conf"] +
                                                                [f"S2_{name}" for name in salib_Si.problem["names"]] +
-                                                               [f"S2_conf_{name}" for name in salib_Si.problem["names"]],
-                                                       index=salib_Si.problem["names"])
-                    ua_results[act][ic]["S1_rank"] = ua_results[act][ic]["S1"].rank(ascending=False)
-                    ua_results[act][ic]["ST_rank"] = ua_results[act][ic]["ST"].rank(ascending=False)
+                                                               [f"S2_{name}_conf" for name in salib_Si.problem["names"]])
+                    df["S1_rank"] = df["S1"].rank(ascending=False)
+                    df["ST_rank"] = df["ST"].rank(ascending=False)
                     for name in salib_Si.problem["names"]:
-                        ua_results[act][ic][f"S2_{name}_rank"] = ua_results[act][ic][f"S2_{name}"].rank(ascending=False)
+                        df[f"S2_{name}_rank"] = df[f"S2_{name}"].rank(ascending=False)
+                    df["parameter"] = salib_Si.problem["names"]
                 elif isinstance(method, FASTMethod):
                     salib_Si = salib_analyze_fast.analyze(salib_problem, salib_Y,
                                                           M=method.M,
@@ -220,12 +217,12 @@ ScoresDict, ParametersDict]:
                                                           conf_level=method.conf_level,
                                                           print_to_console=method.print_to_console,
                                                           seed=method.seed,)
-                    ua_results[act][ic] = pd.DataFrame(data=np.stack([salib_Si["S1"], salib_Si["S1_conf"], salib_Si["ST"],
+                    df = pd.DataFrame(data=np.stack([salib_Si["S1"], salib_Si["S1_conf"], salib_Si["ST"],
                                                                       salib_Si["ST_conf"]], axis=-1),
-                                                       columns=["S1", "S1_conf", "ST", "ST_conf"],
-                                                       index=salib_Si["names"])
-                    ua_results[act][ic]["S1_rank"] = ua_results[act][ic]["S1"].rank(ascending=False)
-                    ua_results[act][ic]["ST_rank"] = ua_results[act][ic]["ST"].rank(ascending=False)
+                                                       columns=["S1", "S1_conf", "ST", "ST_conf"])
+                    df["S1_rank"] = df["S1"].rank(ascending=False)
+                    df["ST_rank"] = df["ST"].rank(ascending=False)
+                    df["parameter"] = salib_Si["names"]
                 elif isinstance(method, RBDFASTMethod):
                     salib_Si = salib_analyze_rbd_fast.analyze(salib_problem,
                                                               salib_param_values,
@@ -233,11 +230,11 @@ ScoresDict, ParametersDict]:
                                                           M=method.M,
                                                           print_to_console=method.print_to_console,
                                                           seed=method.seed,)
-                    ua_results[act][ic] = pd.DataFrame(
+                    df = pd.DataFrame(
                         data=np.stack([salib_Si["S1"], salib_Si["S1_conf"]], axis=-1),
-                        columns=["S1", "S1_conf"],
-                        index=salib_Si["names"])
-                    ua_results[act][ic]["S1_rank"] = ua_results[act][ic]["S1"].rank(ascending=False)
+                        columns=["S1", "S1_conf"])
+                    df["S1_rank"] = df["S1"].rank(ascending=False)
+                    df["parameter"] = salib_Si["names"]
                 elif isinstance(method, PAWNMethod):
                     salib_Si = salib_analyze_pawn.analyze(salib_problem,
                                                               salib_param_values,
@@ -245,14 +242,19 @@ ScoresDict, ParametersDict]:
                                                           S=method.S,
                                                           print_to_console=method.print_to_console,
                                                           seed=method.seed,)
-                    ua_results[act][ic] = pd.DataFrame(
+                    df = pd.DataFrame(
                         data=np.stack([salib_Si["minimum"], salib_Si["mean"], salib_Si["median"],
                                        salib_Si["maximum"], salib_Si["CV"], salib_Si["stdev"]], axis=-1),
-                        columns=["minimum", "mean", "median", "maximum", "CV", "stdev"],
-                        index=salib_Si["names"])
-                    ua_results[act][ic]["median_rank"] = ua_results[act][ic]["median"].rank(ascending=False)
-                    ua_results[act][ic]["maximum_rank"] = ua_results[act][ic]["maximum"].rank(ascending=False)
-        return ua_results, scores, parameters
+                        columns=["minimum", "mean", "median", "maximum", "CV", "stdev"])
+                    df["median_rank"] = df["median"].rank(ascending=False)
+                    df["maximum_rank"] = df["maximum"].rank(ascending=False)
+                    df["parameter"] = salib_Si["names"]
+                df["activity"] = act
+                df["impact_category"] = str(ic)
+                ua_results.append(df)
+
+        ua_df = pd.concat(ua_results, ignore_index=True)
+        return ua_df, scores, parameters
     elif isinstance(method, SobolLi2016Method):
         # TODO: Integrate the Monte-Carlo-based estimations more cleanly.
         scores, scores_background, parameters = run_monte_carlo(activities,
@@ -263,10 +265,9 @@ ScoresDict, ParametersDict]:
         background_activities = list(scores_background.keys())
         impact_categories = list(scores[activities[0]].keys())
 
-        ua_results = {}
+        ua_results = []
 
         for act in activities:
-            ua_results[act] = {}
             for ic in impact_categories:
                 data = []
                 index = []
@@ -288,13 +289,19 @@ ScoresDict, ParametersDict]:
                     index.append(str(bact))
                     data.append({"S1_alg_1": S1_alg_1,
                                    "S1_alg_2": S1_alg_2,})
-                ua_results[act][ic] = pd.DataFrame(data, index=index)
-                ua_results[act][ic]["S1_alg_1_rank"] = ua_results[act][ic]["S1_alg_1"].rank(ascending=False)
-                ua_results[act][ic]["S1_alg_2_rank"] = ua_results[act][ic]["S1_alg_2"].rank(ascending=False)
+                df = pd.DataFrame(data)
+                df["S1_alg_1_rank"] = df["S1_alg_1"].rank(ascending=False)
+                df["S1_alg_2_rank"] = df["S1_alg_2"].rank(ascending=False)
+                df["activity"] = act
+                df["impact_category"] = str(ic)
+                df["parameter"] = index
+                ua_results.append(df)
 
         scores_combined = dict(scores)
         scores_combined.update(scores_background)
-        return ua_results, scores_combined, parameters
+
+        ua_df = pd.concat(ua_results, ignore_index=True)
+        return ua_df, scores_combined, parameters
     else:
         raise ValueError("Unsupported method. Should be one of SobolSaltelliMethod, SobolLi2016Method, FASTMethod.")
 

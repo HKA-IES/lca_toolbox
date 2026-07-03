@@ -25,41 +25,19 @@ class TestSensitivity:
         # Why? I don't know...
         _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
-        ua, _, _ = uncertainty_apportioning(activities,
+        df_ua, _, _ = uncertainty_apportioning(activities,
                                             impact_categories,
                                             SobolSaltelliMethod(N=2))
 
-        # Check format
-        assert set(ua.keys()) == set([activity_string(act) for act in activities])
-        for act_ua in ua.values():
-            assert set(act_ua.keys()) == set(impact_categories)
-            for ic_ua in act_ua.values():
-                assert len(ic_ua.columns) == 14*3 + 6
-                assert "S1" in ic_ua.columns
-                assert "S1_conf" in ic_ua.columns
-                assert "S1_rank" in ic_ua.columns
-                assert "ST" in ic_ua.columns
-                assert "ST_conf" in ic_ua.columns
-                assert "ST_rank" in ic_ua.columns
-                assert len(ic_ua.index) == 14
-                # TODO: Check that columns for S2, S2_conf are OK
-
-        # S1 and ST differ
-
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
-                                  ua[activity_string(activities[0])][impact_categories[0]]["ST"])
-
-        # Different values for different activities
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
-                                  ua[activity_string(activities[1])][impact_categories[0]]["S1"])
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["ST"],
-                                  ua[activity_string(activities[1])][impact_categories[0]]["ST"])
-
-        # Different values for different impact categories
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
-                                  ua[activity_string(activities[0])][impact_categories[1]]["S1"])
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["ST"],
-                                  ua[activity_string(activities[0])][impact_categories[1]]["ST"])
+        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
+        expected_cols = {"parameter", "activity", "impact_category", "S1", "S1_conf", "S1_rank", "ST", "ST_conf",
+                         "ST_rank"}
+        expected_cols |= {f"S2_{param}" for param in df_ua["parameter"]}
+        expected_cols |= {f"S2_{param}_conf" for param in df_ua["parameter"]}
+        expected_cols |= {f"S2_{param}_rank" for param in df_ua["parameter"]}
+        assert set(df_ua.columns) == expected_cols
 
     def test_uncertainty_apportioning_fast(self, imported_activities):
         activities = imported_activities
@@ -72,39 +50,16 @@ class TestSensitivity:
         # Why? I don't know...
         _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
-        ua, _, _ = uncertainty_apportioning(activities,
+        df_ua, _, _ = uncertainty_apportioning(activities,
                                             impact_categories,
                                             FASTMethod(N=5, M=1))
 
-        # Check format
-        assert set(ua.keys()) == set([activity_string(act) for act in activities])
-        for act_ua in ua.values():
-            assert set(act_ua.keys()) == set(impact_categories)
-            for ic_ua in act_ua.values():
-                assert len(ic_ua.columns) == 6
-                assert "S1" in ic_ua.columns
-                assert "S1_conf" in ic_ua.columns
-                assert "S1_rank" in ic_ua.columns
-                assert "ST" in ic_ua.columns
-                assert "ST_conf" in ic_ua.columns
-                assert "ST_rank" in ic_ua.columns
-                assert len(ic_ua.index) == 14
-
-        # S1 and ST differ
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
-                                  ua[activity_string(activities[0])][impact_categories[0]]["ST"])
-
-        # Different values for different activities
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
-                                  ua[activity_string(activities[1])][impact_categories[0]]["S1"])
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["ST"],
-                                  ua[activity_string(activities[1])][impact_categories[0]]["ST"])
-
-        # Different values for different impact categories
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
-                                  ua[activity_string(activities[0])][impact_categories[1]]["S1"])
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["ST"],
-                                  ua[activity_string(activities[0])][impact_categories[1]]["ST"])
+        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
+        expected_cols = {"parameter", "activity", "impact_category", "S1", "S1_conf", "S1_rank", "ST", "ST_conf",
+                         "ST_rank"}
+        assert set(df_ua.columns) == expected_cols
 
     def test_uncertainty_apportioning_rbd_fast(self, imported_activities):
         activities = imported_activities
@@ -117,28 +72,15 @@ class TestSensitivity:
         # Why? I don't know...
         _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
-        ua, _, _ = uncertainty_apportioning(activities,
+        df_ua, _, _ = uncertainty_apportioning(activities,
                                             impact_categories,
                                             RBDFASTMethod(N=30, M=5))
 
-        # Check format
-        assert set(ua.keys()) == set([activity_string(act) for act in activities])
-        for act_ua in ua.values():
-            assert set(act_ua.keys()) == set(impact_categories)
-            for ic_ua in act_ua.values():
-                assert len(ic_ua.columns) == 3
-                assert "S1" in ic_ua.columns
-                assert "S1_conf" in ic_ua.columns
-                assert "S1_rank" in ic_ua.columns
-                assert len(ic_ua.index) == 14
-
-        # Different values for different activities
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
-                                  ua[activity_string(activities[1])][impact_categories[0]]["S1"])
-
-        # Different values for different impact categories
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
-                                  ua[activity_string(activities[0])][impact_categories[1]]["S1"])
+        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
+        expected_cols = {"parameter", "activity", "impact_category", "S1", "S1_conf", "S1_rank"}
+        assert set(df_ua.columns) == expected_cols
 
     def test_uncertainty_apportioning_pawn(self, imported_activities):
         activities = imported_activities
@@ -151,34 +93,16 @@ class TestSensitivity:
         # Why? I don't know...
         _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
-        ua, _, _ = uncertainty_apportioning(activities,
+        df_ua, _, _ = uncertainty_apportioning(activities,
                                             impact_categories,
                                             PAWNMethod(N=20))
 
-        # Check format
-        assert set(ua.keys()) == set([activity_string(act) for act in activities])
-        for act_ua in ua.values():
-            assert set(act_ua.keys()) == set(impact_categories)
-            for ic_ua in act_ua.values():
-                assert set(ic_ua.keys()) == {"minimum", "mean", "median", "maximum", "CV", "stdev", "median_rank",
-                                             "maximum_rank"}
-                assert len(ic_ua.index) == 14
-
-        # median, CV differ
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["CV"],
-                                  ua[activity_string(activities[0])][impact_categories[0]]["median"])
-
-        # Different values for different activities
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["CV"],
-                                  ua[activity_string(activities[1])][impact_categories[0]]["CV"])
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["median"],
-                                  ua[activity_string(activities[1])][impact_categories[0]]["median"])
-
-        # Different values for different impact categories
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["CV"],
-                                  ua[activity_string(activities[0])][impact_categories[1]]["CV"])
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["median"],
-                                  ua[activity_string(activities[0])][impact_categories[1]]["median"])
+        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
+        expected_cols = {"parameter", "activity", "impact_category", "minimum", "mean", "median", "maximum", "CV",
+                         "stdev", "median_rank", "maximum_rank"}
+        assert set(df_ua.columns) == expected_cols
 
     def test_uncertainty_apportioning_sobol_li_2016(self, imported_activities):
         activities = imported_activities
@@ -191,38 +115,16 @@ class TestSensitivity:
         # Why? I don't know...
         _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
-        ua, scores, parameters = uncertainty_apportioning(activities,
+        df_ua, scores, parameters = uncertainty_apportioning(activities,
                                             impact_categories,
                                             SobolLi2016Method(N=25,
                                                               n_bins=5))
 
-        expected_df_columns = ["name", "type", "value"]
-        expected_df_column_dtypes = [pd.StringDtype(na_value=np.nan), pd.StringDtype(na_value=np.nan), float]
-
-        # Formatting of results
-        expected_ua_keys = set([activity_string(act) for act in activities])
-        assert set(ua.keys()) == expected_ua_keys
-        for act_ua in ua.values():
-            assert set(act_ua.keys()) == set(impact_categories)
-            for ic_ua in act_ua.values():
-                assert len(ic_ua) == 26
-                assert set(ic_ua.columns) == {"S1_alg_1", "S1_alg_2", "S1_alg_1_rank", "S1_alg_2_rank"}
-
-        # S1_alg_1, S1_alg_2 differ
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1_alg_1"],
-                                  ua[activity_string(activities[0])][impact_categories[0]]["S1_alg_2"])
-
-        # Different values for different activities
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1_alg_1"],
-                                  ua[activity_string(activities[1])][impact_categories[0]]["S1_alg_1"])
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1_alg_2"],
-                                  ua[activity_string(activities[1])][impact_categories[0]]["S1_alg_2"])
-
-        # Different values for different impact categories
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1_alg_1"],
-                                  ua[activity_string(activities[0])][impact_categories[1]]["S1_alg_1"])
-        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1_alg_2"],
-                                  ua[activity_string(activities[0])][impact_categories[1]]["S1_alg_2"])
+        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 12)
+        expected_cols = {"parameter", "activity", "impact_category", "S1_alg_1", "S1_alg_2", "S1_alg_1_rank", "S1_alg_2_rank"}
+        assert set(df_ua.columns) == expected_cols
 
     def test_local_sensitivity_analysis(self, imported_activities):
         activities = imported_activities
