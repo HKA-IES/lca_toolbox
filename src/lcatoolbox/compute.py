@@ -10,7 +10,7 @@ import bw2calc as bc
 import stats_arrays
 
 # import your own module
-from .types import ScoresDict, ParametersDict, ImpactCategoryTuple, act_tuple
+from .types import ScoresDict, ParametersDict, ImpactCategoryTuple, activity_string
 
 
 def calculate_scores(activities: List[bd.backends.proxies.Activity],
@@ -88,9 +88,9 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
     parameters = {}
 
     for act in activities:
-        scores[act_tuple(act)] = {}
+        scores[activity_string(act)] = {}
         for ic in impact_categories:
-            scores[act_tuple(act)][ic] = [lca_scores[ic, str(act.id)]]
+            scores[activity_string(act)][ic] = [lca_scores[ic, str(act.id)]]
 
     for param in ProjectParameter.select():
         if param.formula is None:

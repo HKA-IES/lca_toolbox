@@ -8,7 +8,7 @@ from bw2data.parameters import ProjectParameter
 import pytest
 
 # import your own module
-from lcatoolbox import calculate_scores, act_tuple
+from lcatoolbox import calculate_scores, activity_string
 from setup_bw_project import setup_brightway, imported_activities
 
 class TestCompute:
@@ -37,12 +37,12 @@ class TestCompute:
             assert len(param_data["values"]) == 1
 
         # Scores differ from one activity to the other
-        assert (scores[act_tuple(activities[0])][impact_categories[0]]
-                != scores[act_tuple(activities[1])][impact_categories[0]])
+        assert (scores[activity_string(activities[0])][impact_categories[0]]
+                != scores[activity_string(activities[1])][impact_categories[0]])
 
         # Scores differ from one impact category to the other
-        assert (scores[act_tuple(activities[0])][impact_categories[0]]
-                != scores[act_tuple(activities[0])][impact_categories[1]])
+        assert (scores[activity_string(activities[0])][impact_categories[0]]
+                != scores[activity_string(activities[0])][impact_categories[1]])
 
         scores_repeat, parameters_repeat = calculate_scores(activities,
                                                     impact_categories, )
@@ -167,7 +167,7 @@ class TestCompute:
                                               impact_categories, )
 
         for ic in impact_categories:
-            assert scores[act_tuple(activities[0])][ic][0] >= 0
+            assert scores[activity_string(activities[0])][ic][0] >= 0
 
     def test_calculate_scores_no_activities(self):
         activities = []

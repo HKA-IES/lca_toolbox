@@ -8,7 +8,7 @@ import numpy as np
 import bw2calc as bc
 
 # import your own module
-from lcatoolbox import (uncertainty_apportioning, local_sensitivity_analysis, act_tuple, SobolSaltelliMethod,
+from lcatoolbox import (uncertainty_apportioning, local_sensitivity_analysis, activity_string, SobolSaltelliMethod,
                         SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod)
 from setup_bw_project import setup_brightway, imported_activities
 
@@ -30,7 +30,7 @@ class TestSensitivity:
                                             SobolSaltelliMethod(N=2))
 
         # Check format
-        assert set(ua.keys()) == set([act_tuple(act) for act in activities])
+        assert set(ua.keys()) == set([activity_string(act) for act in activities])
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
@@ -46,20 +46,20 @@ class TestSensitivity:
 
         # S1 and ST differ
 
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  ua[act_tuple(activities[0])][impact_categories[0]]["ST"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
+                                  ua[activity_string(activities[0])][impact_categories[0]]["ST"])
 
         # Different values for different activities
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  ua[act_tuple(activities[1])][impact_categories[0]]["S1"])
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["ST"],
-                                  ua[act_tuple(activities[1])][impact_categories[0]]["ST"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
+                                  ua[activity_string(activities[1])][impact_categories[0]]["S1"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["ST"],
+                                  ua[activity_string(activities[1])][impact_categories[0]]["ST"])
 
         # Different values for different impact categories
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  ua[act_tuple(activities[0])][impact_categories[1]]["S1"])
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["ST"],
-                                  ua[act_tuple(activities[0])][impact_categories[1]]["ST"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
+                                  ua[activity_string(activities[0])][impact_categories[1]]["S1"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["ST"],
+                                  ua[activity_string(activities[0])][impact_categories[1]]["ST"])
 
     def test_uncertainty_apportioning_fast(self, imported_activities):
         activities = imported_activities
@@ -77,7 +77,7 @@ class TestSensitivity:
                                             FASTMethod(N=5, M=1))
 
         # Check format
-        assert set(ua.keys()) == set([act_tuple(act) for act in activities])
+        assert set(ua.keys()) == set([activity_string(act) for act in activities])
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
@@ -91,20 +91,20 @@ class TestSensitivity:
                 assert len(ic_ua.index) == 14
 
         # S1 and ST differ
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  ua[act_tuple(activities[0])][impact_categories[0]]["ST"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
+                                  ua[activity_string(activities[0])][impact_categories[0]]["ST"])
 
         # Different values for different activities
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  ua[act_tuple(activities[1])][impact_categories[0]]["S1"])
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["ST"],
-                                  ua[act_tuple(activities[1])][impact_categories[0]]["ST"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
+                                  ua[activity_string(activities[1])][impact_categories[0]]["S1"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["ST"],
+                                  ua[activity_string(activities[1])][impact_categories[0]]["ST"])
 
         # Different values for different impact categories
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  ua[act_tuple(activities[0])][impact_categories[1]]["S1"])
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["ST"],
-                                  ua[act_tuple(activities[0])][impact_categories[1]]["ST"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
+                                  ua[activity_string(activities[0])][impact_categories[1]]["S1"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["ST"],
+                                  ua[activity_string(activities[0])][impact_categories[1]]["ST"])
 
     def test_uncertainty_apportioning_rbd_fast(self, imported_activities):
         activities = imported_activities
@@ -122,7 +122,7 @@ class TestSensitivity:
                                             RBDFASTMethod(N=30, M=5))
 
         # Check format
-        assert set(ua.keys()) == set([act_tuple(act) for act in activities])
+        assert set(ua.keys()) == set([activity_string(act) for act in activities])
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
@@ -133,12 +133,12 @@ class TestSensitivity:
                 assert len(ic_ua.index) == 14
 
         # Different values for different activities
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  ua[act_tuple(activities[1])][impact_categories[0]]["S1"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
+                                  ua[activity_string(activities[1])][impact_categories[0]]["S1"])
 
         # Different values for different impact categories
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1"],
-                                  ua[act_tuple(activities[0])][impact_categories[1]]["S1"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1"],
+                                  ua[activity_string(activities[0])][impact_categories[1]]["S1"])
 
     def test_uncertainty_apportioning_pawn(self, imported_activities):
         activities = imported_activities
@@ -156,7 +156,7 @@ class TestSensitivity:
                                             PAWNMethod(N=20))
 
         # Check format
-        assert set(ua.keys()) == set([act_tuple(act) for act in activities])
+        assert set(ua.keys()) == set([activity_string(act) for act in activities])
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
@@ -165,20 +165,20 @@ class TestSensitivity:
                 assert len(ic_ua.index) == 14
 
         # median, CV differ
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["CV"],
-                                  ua[act_tuple(activities[0])][impact_categories[0]]["median"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["CV"],
+                                  ua[activity_string(activities[0])][impact_categories[0]]["median"])
 
         # Different values for different activities
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["CV"],
-                                  ua[act_tuple(activities[1])][impact_categories[0]]["CV"])
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["median"],
-                                  ua[act_tuple(activities[1])][impact_categories[0]]["median"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["CV"],
+                                  ua[activity_string(activities[1])][impact_categories[0]]["CV"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["median"],
+                                  ua[activity_string(activities[1])][impact_categories[0]]["median"])
 
         # Different values for different impact categories
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["CV"],
-                                  ua[act_tuple(activities[0])][impact_categories[1]]["CV"])
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["median"],
-                                  ua[act_tuple(activities[0])][impact_categories[1]]["median"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["CV"],
+                                  ua[activity_string(activities[0])][impact_categories[1]]["CV"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["median"],
+                                  ua[activity_string(activities[0])][impact_categories[1]]["median"])
 
     def test_uncertainty_apportioning_sobol_li_2016(self, imported_activities):
         activities = imported_activities
@@ -200,7 +200,7 @@ class TestSensitivity:
         expected_df_column_dtypes = [pd.StringDtype(na_value=np.nan), pd.StringDtype(na_value=np.nan), float]
 
         # Formatting of results
-        expected_ua_keys = set([act_tuple(act) for act in activities])
+        expected_ua_keys = set([activity_string(act) for act in activities])
         assert set(ua.keys()) == expected_ua_keys
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
@@ -209,20 +209,20 @@ class TestSensitivity:
                 assert set(ic_ua.columns) == {"S1_alg_1", "S1_alg_2", "S1_alg_1_rank", "S1_alg_2_rank"}
 
         # S1_alg_1, S1_alg_2 differ
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_1"],
-                                  ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_2"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1_alg_1"],
+                                  ua[activity_string(activities[0])][impact_categories[0]]["S1_alg_2"])
 
         # Different values for different activities
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_1"],
-                                  ua[act_tuple(activities[1])][impact_categories[0]]["S1_alg_1"])
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_2"],
-                                  ua[act_tuple(activities[1])][impact_categories[0]]["S1_alg_2"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1_alg_1"],
+                                  ua[activity_string(activities[1])][impact_categories[0]]["S1_alg_1"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1_alg_2"],
+                                  ua[activity_string(activities[1])][impact_categories[0]]["S1_alg_2"])
 
         # Different values for different impact categories
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_1"],
-                                  ua[act_tuple(activities[0])][impact_categories[1]]["S1_alg_1"])
-        assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_2"],
-                                  ua[act_tuple(activities[0])][impact_categories[1]]["S1_alg_2"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1_alg_1"],
+                                  ua[activity_string(activities[0])][impact_categories[1]]["S1_alg_1"])
+        assert not np.array_equal(ua[activity_string(activities[0])][impact_categories[0]]["S1_alg_2"],
+                                  ua[activity_string(activities[0])][impact_categories[1]]["S1_alg_2"])
 
     def test_local_sensitivity_analysis(self, imported_activities):
         activities = imported_activities
@@ -241,7 +241,7 @@ class TestSensitivity:
                                                 parameters)
 
         # Check format
-        assert set(results.keys()) == set([act_tuple(act) for act in activities])
+        assert set(results.keys()) == set([activity_string(act) for act in activities])
         for act_results in results.values():
             assert set(act_results.keys()) == set(impact_categories)
             for ic_results in act_results.values():
@@ -250,23 +250,23 @@ class TestSensitivity:
                     assert set(param_results.keys()) == {"sensitivity", "elasticity"}
 
         # Sensitivity and elasticity differ
-        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["sensitivity"] !=
-                results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["elasticity"])
+        assert (results[activity_string(activities[0])][impact_categories[0]][parameters[0]]["sensitivity"] !=
+                results[activity_string(activities[0])][impact_categories[0]][parameters[0]]["elasticity"])
 
         # Different values for different activities
-        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["sensitivity"] !=
-                results[act_tuple(activities[1])][impact_categories[0]][parameters[0]]["sensitivity"])
-        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["elasticity"] !=
-                results[act_tuple(activities[1])][impact_categories[0]][parameters[0]]["elasticity"])
+        assert (results[activity_string(activities[0])][impact_categories[0]][parameters[0]]["sensitivity"] !=
+                results[activity_string(activities[1])][impact_categories[0]][parameters[0]]["sensitivity"])
+        assert (results[activity_string(activities[0])][impact_categories[0]][parameters[0]]["elasticity"] !=
+                results[activity_string(activities[1])][impact_categories[0]][parameters[0]]["elasticity"])
 
         # Different values for different impact categories
-        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["sensitivity"] !=
-                results[act_tuple(activities[0])][impact_categories[1]][parameters[0]]["sensitivity"])
-        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["elasticity"] !=
-                results[act_tuple(activities[0])][impact_categories[1]][parameters[0]]["elasticity"])
+        assert (results[activity_string(activities[0])][impact_categories[0]][parameters[0]]["sensitivity"] !=
+                results[activity_string(activities[0])][impact_categories[1]][parameters[0]]["sensitivity"])
+        assert (results[activity_string(activities[0])][impact_categories[0]][parameters[0]]["elasticity"] !=
+                results[activity_string(activities[0])][impact_categories[1]][parameters[0]]["elasticity"])
 
         # Different values for different parameters
-        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["sensitivity"] !=
-                results[act_tuple(activities[0])][impact_categories[0]][parameters[1]]["sensitivity"])
-        assert (results[act_tuple(activities[0])][impact_categories[0]][parameters[0]]["elasticity"] !=
-                results[act_tuple(activities[0])][impact_categories[0]][parameters[1]]["elasticity"])
+        assert (results[activity_string(activities[0])][impact_categories[0]][parameters[0]]["sensitivity"] !=
+                results[activity_string(activities[0])][impact_categories[0]][parameters[1]]["sensitivity"])
+        assert (results[activity_string(activities[0])][impact_categories[0]][parameters[0]]["elasticity"] !=
+                results[activity_string(activities[0])][impact_categories[0]][parameters[1]]["elasticity"])

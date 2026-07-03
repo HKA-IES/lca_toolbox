@@ -22,7 +22,7 @@ from SALib.analyze import pawn as salib_analyze_pawn
 
 # import your own module
 from .compute import calculate_scores
-from .types import (ScoresDict, ParametersDict, ActivityTuple, ImpactCategoryTuple, act_tuple, concat_scores_dicts,
+from .types import (ScoresDict, ParametersDict, ImpactCategoryTuple, activity_string, concat_scores_dicts,
                     concat_parameters_dicts)
 from .monte_carlo import run_monte_carlo
 
@@ -301,7 +301,7 @@ ScoresDict, ParametersDict]:
 def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
                                impact_categories: List[ImpactCategoryTuple],
                                parameters: List[str],
-                               perturbation_size: float = 0.01) -> Dict[ActivityTuple, Dict[ImpactCategoryTuple, Dict[str, Dict[str, float]]]]:
+                               perturbation_size: float = 0.01) -> Dict[str, Dict[ImpactCategoryTuple, Dict[str, Dict[str, float]]]]:
     """
     For each parameter and each score, we compute the sensitivity and elasticity according to the following formulas:
 
@@ -317,9 +317,9 @@ def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
 
     results = {}
     for act in activities:
-        results[act_tuple(act)] = {}
+        results[activity_string(act)] = {}
         for ic in impact_categories:
-            results[act_tuple(act)][ic] = {}
+            results[activity_string(act)][ic] = {}
 
     for param in parameters:
         if not param in list(parameters_nominal.keys()):
@@ -336,12 +336,12 @@ def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
 
         for act in activities:
             for ic in impact_categories:
-                score_nominal = scores_nominal[act_tuple(act)][ic][0]
-                score_perturbed = scores_perturbed[act_tuple(act)][ic][0]
+                score_nominal = scores_nominal[activity_string(act)][ic][0]
+                score_perturbed = scores_perturbed[activity_string(act)][ic][0]
                 sensitivity = ((score_perturbed - score_nominal)
                                / (param_perturbed - param_nominal))
                 elasticity = (param_nominal / score_nominal) * sensitivity
-                results[act_tuple(act)][ic][param] = {"sensitivity": sensitivity,
+                results[activity_string(act)][ic][param] = {"sensitivity": sensitivity,
                                                       "elasticity": elasticity}
 
     return results

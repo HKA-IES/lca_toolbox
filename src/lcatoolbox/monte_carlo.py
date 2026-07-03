@@ -14,7 +14,7 @@ import stats_arrays
 # import your own module
 from .compute import calculate_scores
 from .types import (ScoresDict, ParametersDict, ImpactCategoryTuple, concat_scores_dicts, concat_parameters_dicts,
-                    act_tuple)
+                    activity_string)
 
 
 # TODO: support providing arrays of parameters (for use with Saltelli sampling, for example)
@@ -86,7 +86,7 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
 
     scores_background = {}
     for bact in background_activities:
-        bact_tuple = act_tuple(bact)
+        bact_tuple = activity_string(bact)
         scores_background[bact_tuple] = scores[bact_tuple]
         del scores[bact_tuple]
 

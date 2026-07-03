@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from .types import ActivityTuple, ImpactCategoryTuple, act_tuple, ScoresDict, ParametersDict
+from .types import ImpactCategoryTuple, activity_string, ScoresDict, ParametersDict
 from .contributions import contributions_tree, grouped_contributions
 from .import_ import import_foreground, copy_ecoinvent_activity, reset_foreground
 from .methods import get_impact_categories

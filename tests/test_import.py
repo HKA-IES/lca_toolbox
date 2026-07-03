@@ -12,7 +12,7 @@ import stats_arrays
 import numpy as np
 
 # import your own module
-from lcatoolbox import import_foreground, copy_ecoinvent_activity, reset_foreground, act_tuple
+from lcatoolbox import import_foreground, copy_ecoinvent_activity, reset_foreground, activity_string
 from setup_bw_project import setup_brightway
 
 class TestImport:

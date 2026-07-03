@@ -8,7 +8,7 @@ import bw2data as bd
 import pandas as pd
 
 # import your own module
-from .types import ImpactCategoryTuple, act_tuple
+from .types import ImpactCategoryTuple, activity_string
 from .compute import calculate_scores
 
 def contributions_tree(activity: bd.backends.proxies.Activity,
@@ -73,7 +73,7 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
                                        "depth": depth,
                                        "amount": amount,
                                        "unit": act["unit"],
-                                       "score": amount*scores[act_tuple(act)][impact_category][0]})
+                                       "score": amount*scores[activity_string(act)][impact_category][0]})
         else:
             contributions.append({"activity_name": act["name"],
                                        "activity_location": act["location"],
@@ -82,7 +82,7 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
                                        "depth": depth,
                                        "amount": amount,
                                        "unit": act["unit"],
-                                       "score": amount*scores[act_tuple(act)][impact_category][0]})
+                                       "score": amount*scores[activity_string(act)][impact_category][0]})
 
         if depth < max_depth:
             for exc in act.technosphere():
@@ -91,7 +91,7 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
 
     contributions = get_contributions(None, activity, amount, 0, max_depth)
     df = pd.DataFrame(contributions)
-    total_score = amount * scores[act_tuple(activity)][impact_category][0]
+    total_score = amount * scores[activity_string(activity)][impact_category][0]
     df["contribution"] = df["score"] / total_score
 
     return df
@@ -161,10 +161,10 @@ def grouped_contributions(activity: bd.backends.proxies.Activity,
                     exc_amount *= -1
                 try:
                     # grouped_contributions[exc["group"]] += lca.scores[impact_category, str(exc.input.id)]*amount*exc_amount/abs(production_amount)
-                    grouped_contributions[exc["group"]] += scores[act_tuple(exc.input)][impact_category][0] * amount * exc_amount / abs(production_amount)
+                    grouped_contributions[exc["group"]] += scores[activity_string(exc.input)][impact_category][0] * amount * exc_amount / abs(production_amount)
                 except KeyError:
                     # grouped_contributions[exc["group"]] = lca.scores[impact_category, str(exc.input.id)]*amount*exc_amount/abs(production_amount)
-                    grouped_contributions[exc["group"]] = scores[act_tuple(exc.input)][impact_category][
+                    grouped_contributions[exc["group"]] = scores[activity_string(exc.input)][impact_category][
                                                                0] * amount * exc_amount / abs(production_amount)
             else:
                 new_grouped_contributions = get_contributions(exc.input, exc.amount*amount/abs(production_amount), max_depth-1)
@@ -177,7 +177,7 @@ def grouped_contributions(activity: bd.backends.proxies.Activity,
 
     grouped_contributions = get_contributions(activity, amount, max_depth)
     df = pd.DataFrame(list(grouped_contributions.items()), columns=["group", "score"])
-    total_score = amount * scores[act_tuple(activity)][impact_category][0]
+    total_score = amount * scores[activity_string(activity)][impact_category][0]
     df["contribution"] = df["score"] / total_score
 
     return df

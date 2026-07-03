@@ -8,7 +8,7 @@ import bw2data as bd
 from bw2data.parameters import ProjectParameter
 
 # import your own module
-from lcatoolbox import run_monte_carlo, discernability_analysis, act_tuple
+from lcatoolbox import run_monte_carlo, discernability_analysis, activity_string
 from setup_bw_project import imported_activities, setup_brightway
 
 class TestMonteCarlo:
@@ -39,43 +39,43 @@ class TestMonteCarlo:
                                                n_iterations=n_iterations,)
 
         # Validation of scores
-        assert set(scores.keys()) == set([act_tuple(act) for act in activities])
+        assert set(scores.keys()) == set([activity_string(act) for act in activities])
         for act_scores in scores.values():
             assert set(act_scores.keys()) == set(impact_categories)
             for ic_scores in act_scores.values():
                 assert len(ic_scores) == n_iterations
 
         # Values differ from one iteration to the other
-        assert (scores[act_tuple(activities[0])][impact_categories[0]][0]
-                != scores[act_tuple(activities[0])][impact_categories[0]][1])
+        assert (scores[activity_string(activities[0])][impact_categories[0]][0]
+                != scores[activity_string(activities[0])][impact_categories[0]][1])
 
         # Values differ from one activity to the other
-        assert (scores[act_tuple(activities[0])][impact_categories[0]][0]
-                != scores[act_tuple(activities[1])][impact_categories[0]][0])
+        assert (scores[activity_string(activities[0])][impact_categories[0]][0]
+                != scores[activity_string(activities[1])][impact_categories[0]][0])
 
         # Values differ from one impact category to the other
-        assert (scores[act_tuple(activities[0])][impact_categories[0]][0]
-                != scores[act_tuple(activities[0])][impact_categories[1]][0])
+        assert (scores[activity_string(activities[0])][impact_categories[0]][0]
+                != scores[activity_string(activities[0])][impact_categories[1]][0])
 
         # Validation of scores_background
         assert (set(scores_background.keys())
-                == set([act_tuple(bact) for bact in background_activities]))
+                == set([activity_string(bact) for bact in background_activities]))
         for act_scores_background in scores_background.values():
             assert set(act_scores_background.keys()) == set(impact_categories)
             for ic_scores_background in act_scores_background.values():
                 assert len(ic_scores_background) == n_iterations
 
         # Values differ from one iteration to the other
-        assert (scores_background[act_tuple(background_activities[0])][impact_categories[0]][0]
-                != scores_background[act_tuple(background_activities[0])][impact_categories[0]][1])
+        assert (scores_background[activity_string(background_activities[0])][impact_categories[0]][0]
+                != scores_background[activity_string(background_activities[0])][impact_categories[0]][1])
 
         # Values differ from one activity to the other
-        assert (scores_background[act_tuple(background_activities[0])][impact_categories[0]][0]
-                != scores_background[act_tuple(background_activities[1])][impact_categories[0]][0])
+        assert (scores_background[activity_string(background_activities[0])][impact_categories[0]][0]
+                != scores_background[activity_string(background_activities[1])][impact_categories[0]][0])
 
         # Values differ from one impact category to the other
-        assert (scores_background[act_tuple(background_activities[0])][impact_categories[0]][0]
-                != scores_background[act_tuple(background_activities[0])][impact_categories[1]][0])
+        assert (scores_background[activity_string(background_activities[0])][impact_categories[0]][0]
+                != scores_background[activity_string(background_activities[0])][impact_categories[1]][0])
 
         # Validation of parameters
         assert len(parameters) == len(ProjectParameter.select())
