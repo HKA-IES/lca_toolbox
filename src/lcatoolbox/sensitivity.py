@@ -209,6 +209,10 @@ ScoresDict, ParametersDict]:
                                                                [f"S2_{name}" for name in salib_Si.problem["names"]] +
                                                                [f"S2_conf_{name}" for name in salib_Si.problem["names"]],
                                                        index=salib_Si.problem["names"])
+                    ua_results[act][ic]["S1_rank"] = ua_results[act][ic]["S1"].rank(ascending=False)
+                    ua_results[act][ic]["ST_rank"] = ua_results[act][ic]["ST"].rank(ascending=False)
+                    for name in salib_Si.problem["names"]:
+                        ua_results[act][ic][f"S2_{name}_rank"] = ua_results[act][ic][f"S2_{name}"].rank(ascending=False)
                 elif isinstance(method, FASTMethod):
                     salib_Si = salib_analyze_fast.analyze(salib_problem, salib_Y,
                                                           M=method.M,
@@ -220,6 +224,8 @@ ScoresDict, ParametersDict]:
                                                                       salib_Si["ST_conf"]], axis=-1),
                                                        columns=["S1", "S1_conf", "ST", "ST_conf"],
                                                        index=salib_Si["names"])
+                    ua_results[act][ic]["S1_rank"] = ua_results[act][ic]["S1"].rank(ascending=False)
+                    ua_results[act][ic]["ST_rank"] = ua_results[act][ic]["ST"].rank(ascending=False)
                 elif isinstance(method, RBDFASTMethod):
                     salib_Si = salib_analyze_rbd_fast.analyze(salib_problem,
                                                               salib_param_values,
@@ -231,6 +237,7 @@ ScoresDict, ParametersDict]:
                         data=np.stack([salib_Si["S1"], salib_Si["S1_conf"]], axis=-1),
                         columns=["S1", "S1_conf"],
                         index=salib_Si["names"])
+                    ua_results[act][ic]["S1_rank"] = ua_results[act][ic]["S1"].rank(ascending=False)
                 elif isinstance(method, PAWNMethod):
                     salib_Si = salib_analyze_pawn.analyze(salib_problem,
                                                               salib_param_values,
@@ -243,6 +250,8 @@ ScoresDict, ParametersDict]:
                                        salib_Si["maximum"], salib_Si["CV"], salib_Si["stdev"]], axis=-1),
                         columns=["minimum", "mean", "median", "maximum", "CV", "stdev"],
                         index=salib_Si["names"])
+                    ua_results[act][ic]["median_rank"] = ua_results[act][ic]["median"].rank(ascending=False)
+                    ua_results[act][ic]["maximum_rank"] = ua_results[act][ic]["maximum"].rank(ascending=False)
         return ua_results, scores, parameters
     elif isinstance(method, SobolLi2016Method):
         # TODO: Integrate the Monte-Carlo-based estimations more cleanly.
@@ -280,6 +289,8 @@ ScoresDict, ParametersDict]:
                     data.append({"S1_alg_1": S1_alg_1,
                                    "S1_alg_2": S1_alg_2,})
                 ua_results[act][ic] = pd.DataFrame(data, index=index)
+                ua_results[act][ic]["S1_alg_1_rank"] = ua_results[act][ic]["S1_alg_1"].rank(ascending=False)
+                ua_results[act][ic]["S1_alg_2_rank"] = ua_results[act][ic]["S1_alg_2"].rank(ascending=False)
 
         scores_combined = dict(scores)
         scores_combined.update(scores_background)

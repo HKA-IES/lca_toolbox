@@ -34,11 +34,13 @@ class TestSensitivity:
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
-                assert len(ic_ua.columns) == 14*2 + 4
+                assert len(ic_ua.columns) == 14*3 + 6
                 assert "S1" in ic_ua.columns
                 assert "S1_conf" in ic_ua.columns
+                assert "S1_rank" in ic_ua.columns
                 assert "ST" in ic_ua.columns
                 assert "ST_conf" in ic_ua.columns
+                assert "ST_rank" in ic_ua.columns
                 assert len(ic_ua.index) == 14
                 # TODO: Check that columns for S2, S2_conf are OK
 
@@ -79,11 +81,13 @@ class TestSensitivity:
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
-                assert len(ic_ua.columns) == 4
+                assert len(ic_ua.columns) == 6
                 assert "S1" in ic_ua.columns
                 assert "S1_conf" in ic_ua.columns
+                assert "S1_rank" in ic_ua.columns
                 assert "ST" in ic_ua.columns
                 assert "ST_conf" in ic_ua.columns
+                assert "ST_rank" in ic_ua.columns
                 assert len(ic_ua.index) == 14
 
         # S1 and ST differ
@@ -122,9 +126,10 @@ class TestSensitivity:
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
-                assert len(ic_ua.columns) == 2
+                assert len(ic_ua.columns) == 3
                 assert "S1" in ic_ua.columns
                 assert "S1_conf" in ic_ua.columns
+                assert "S1_rank" in ic_ua.columns
                 assert len(ic_ua.index) == 14
 
         # Different values for different activities
@@ -155,7 +160,8 @@ class TestSensitivity:
         for act_ua in ua.values():
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
-                assert set(ic_ua.keys()) == {"minimum", "mean", "median", "maximum", "CV", "stdev"}
+                assert set(ic_ua.keys()) == {"minimum", "mean", "median", "maximum", "CV", "stdev", "median_rank",
+                                             "maximum_rank"}
                 assert len(ic_ua.index) == 14
 
         # median, CV differ
@@ -200,7 +206,7 @@ class TestSensitivity:
             assert set(act_ua.keys()) == set(impact_categories)
             for ic_ua in act_ua.values():
                 assert len(ic_ua) == 26
-                assert set(ic_ua.columns) == {"S1_alg_1", "S1_alg_2"}
+                assert set(ic_ua.columns) == {"S1_alg_1", "S1_alg_2", "S1_alg_1_rank", "S1_alg_2_rank"}
 
         # S1_alg_1, S1_alg_2 differ
         assert not np.array_equal(ua[act_tuple(activities[0])][impact_categories[0]]["S1_alg_1"],
