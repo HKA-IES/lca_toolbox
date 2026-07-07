@@ -8,16 +8,17 @@ import bw2data as bd
 from bw2data.parameters import ProjectParameter, ActivityParameter, Group
 import bw2calc as bc
 import stats_arrays
+import pandas as pd
 
 # import your own module
-from .types import ScoresDict, ParametersDict, ImpactCategoryTuple, activity_string
+from .types import ScoresDict, ImpactCategoryTuple, activity_string
 
 
 def calculate_scores(activities: List[bd.backends.proxies.Activity],
                       impact_categories: List[ImpactCategoryTuple],
                       parameters: Dict[str, float] = {},
                       use_exchange_distributions: bool = False,
-                      use_parameters_distributions: bool = False) -> Tuple[ScoresDict, ParametersDict]:
+                      use_parameters_distributions: bool = False) -> Tuple[ScoresDict, pd.DataFrame]:
     """
     Compute scores for all activities in activities (demand=1) and all impact_categories.
     All parameters are set to the values in parameters.
@@ -85,19 +86,22 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
     lca_scores = lca.scores
 
     scores = {}
-    parameters = {}
+
 
     for act in activities:
         scores[activity_string(act)] = {}
         for ic in impact_categories:
             scores[activity_string(act)][ic] = [lca_scores[ic, str(act.id)]]
 
+    parameters = []
     for param in ProjectParameter.select():
         if param.formula is None:
             param_type = "independent"
         else:
             param_type = "dependent"
-        parameters[param.name] = {"type": param_type,
-                                  "values": [param.amount]}
+        parameters.append({"parameter": param.name,
+                           "type": param_type,
+                           "iter_0": param.amount})
+    df_parameters = pd.DataFrame(parameters)
 
-    return scores, parameters
+    return scores, df_parameters

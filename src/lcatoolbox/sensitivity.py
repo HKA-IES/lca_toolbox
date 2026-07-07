@@ -22,8 +22,7 @@ from SALib.analyze import pawn as salib_analyze_pawn
 
 # import your own module
 from .compute import calculate_scores
-from .types import (ScoresDict, ParametersDict, ImpactCategoryTuple, activity_string, concat_scores_dicts,
-                    concat_parameters_dicts)
+from .types import ScoresDict, ImpactCategoryTuple, activity_string, concat_scores_dicts
 from .monte_carlo import run_monte_carlo
 
 @dataclass
@@ -90,7 +89,7 @@ Method = Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod, RBDFASTMethod
 def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                              impact_categories: List[ImpactCategoryTuple],
                              method: Method,
-                             progress_bar: bool = True)  -> Tuple[pd.DataFrame, ScoresDict, ParametersDict]:
+                             progress_bar: bool = True)  -> Tuple[pd.DataFrame, ScoresDict, pd.DataFrame]:
     if (isinstance(method, SobolSaltelliMethod) or
             isinstance(method, FASTMethod) or
             isinstance(method, RBDFASTMethod) or
@@ -177,7 +176,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                                                       param_values)
 
             scores = concat_scores_dicts(scores, scores_i)
-            parameters = concat_parameters_dicts(parameters, parameters_i)
+            parameters[f"iter_{i}"] = parameters_i["iter_0"]
 
             elapsed = time.time() - start_time
             remaining = elapsed / (i+1) * (n_iterations - i + 1)
@@ -272,11 +271,12 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                 data = []
                 index = []
                 y = scores[act][ic]
-                for param in parameters.keys():
-                    if method.ignore_dependent and parameters[param]["type"] == "dependent":
+                for param in parameters["parameter"].unique():
+
+                    if method.ignore_dependent and parameters[parameters["parameter"] == param]["type"].values[0] == "dependent":
                         continue
 
-                    x = parameters[param]["values"]
+                    x = parameters[parameters["parameter"] == param][[f"iter_{i}" for i in range(method.N)]].values.flatten()
                     S1_alg_1 = _main_effect_li_2016_alg_1(np.array(x), np.array(y), method.n_bins)
                     S1_alg_2 = _main_effect_li_2016_alg_2(np.array(x), np.array(y), method.n_bins)
                     index.append(param)
@@ -329,10 +329,10 @@ def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
             results[activity_string(act)][ic] = {}
 
     for param in parameters:
-        if not param in list(parameters_nominal.keys()):
+        if not param in list(parameters_nominal["parameter"]):
             raise ValueError(f"Parameter {param} not found in the model.")
 
-        param_nominal = parameters_nominal[param]["values"][0]
+        param_nominal = parameters_nominal[parameters_nominal["parameter"] == param]["iter_0"].values[0]
         param_perturbed = (1+perturbation_size) * param_nominal
 
         scores_perturbed, _ = calculate_scores(activities,

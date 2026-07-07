@@ -79,25 +79,13 @@ class TestMonteCarlo:
 
         # Validation of parameters
         assert len(parameters) == len(ProjectParameter.select())
-        for param in ProjectParameter.select():
-            assert param.name in list(parameters.keys())
-            if param.formula is not None:
-                assert parameters[param.name]["type"] == "dependent"
-            else:
-                assert parameters[param.name]["type"] == "independent"
-
-            assert len(parameters[param.name]["values"]) == n_iterations
+        assert set(parameters.columns) == {"parameter", "type"} | {f"iter_{i}" for i in range(n_iterations)}
 
         # Correct values
-        assert set(parameters.keys()) == {param.name for param in ProjectParameter.select()}
+        assert set(parameters["parameter"].unique()) == {param.name for param in ProjectParameter.select()}
 
         # Values differ from one iteration to the other
-        assert (parameters["some_random_value"]["values"][0]
-                != parameters["some_random_value"]["values"][1])
-
-        # Values differ from one parameter to the other
-        assert (parameters["some_random_value"]["values"][0]
-                != parameters["amount_beverage_carton"]["values"][0])
+        assert not parameters["iter_0"].equals(parameters["iter_1"])
 
     def test_run_monte_carlo_no_parameters(self):
         # Ensure that everything runs smoothly when no ProjectParameters have been defined.

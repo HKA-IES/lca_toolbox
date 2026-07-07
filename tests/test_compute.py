@@ -31,10 +31,9 @@ class TestCompute:
             assert len(act_scores) == len(impact_categories)
             for ic_scores in act_scores.values():
                 assert len(ic_scores) == 1
+
         assert len(parameters) == len(ProjectParameter.select())
-        for param_data in parameters.values():
-            _ = param_data["type"]
-            assert len(param_data["values"]) == 1
+        assert set(parameters.columns) == {"parameter", "type", "iter_0"}
 
         # Scores differ from one activity to the other
         assert (scores[activity_string(activities[0])][impact_categories[0]]
@@ -49,7 +48,7 @@ class TestCompute:
 
         # Scores are equivalent when re-calculated
         assert scores == scores_repeat
-        assert parameters == parameters_repeat
+        assert parameters.equals(parameters_repeat)
 
     def test_calculate_scores_use_exchange_distributions(self, imported_activities):
         activities = imported_activities
@@ -70,7 +69,7 @@ class TestCompute:
         assert scores_1 != scores_2
 
         # Parameters are the same from one iteration to the other
-        assert parameters_1 == parameters_2
+        assert parameters_1.equals(parameters_2)
 
     def test_calculate_scores_use_parameters_distributions(self, imported_activities):
         activities = imported_activities
@@ -91,7 +90,7 @@ class TestCompute:
         assert scores_1 != scores_2
 
         # Parameters differ from one iteration to the other
-        assert parameters_1 != parameters_2
+        assert not parameters_1.equals(parameters_2)
 
     def test_calculate_scores_set_parameters(self, imported_activities):
         activities = imported_activities
@@ -109,14 +108,14 @@ class TestCompute:
                                                         parameters={"some_random_value": 3})
 
         # Parameter value is reflected in parameters
-        assert parameters_1["some_random_value"]["values"] == [2]
-        assert parameters_2["some_random_value"]["values"] == [3]
+        assert parameters_1[parameters_1["parameter"] == "some_random_value"]["iter_0"].values[0] == 2
+        assert parameters_2[parameters_2["parameter"] == "some_random_value"]["iter_0"].values[0] == 3
 
         # Scores differ from one iteration to the other
         assert scores_1 != scores_2
 
         # Parameters differ from one iteration to the other
-        assert parameters_1 != parameters_2
+        assert not parameters_1.equals(parameters_2)
 
     def test_calculate_scores_set_parameters_do_not_exist(self, imported_activities):
         activities = imported_activities

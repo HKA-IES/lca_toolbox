@@ -13,8 +13,7 @@ import stats_arrays
 
 # import your own module
 from .compute import calculate_scores
-from .types import (ScoresDict, ParametersDict, ImpactCategoryTuple, concat_scores_dicts, concat_parameters_dicts,
-                    activity_string)
+from .types import ScoresDict, ImpactCategoryTuple, concat_scores_dicts, activity_string
 
 
 # TODO: support providing arrays of parameters (for use with Saltelli sampling, for example)
@@ -22,7 +21,7 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
                     impact_categories: List[ImpactCategoryTuple],
                     n_iterations: int,
                     foreground_db_name: str = "foreground",
-                    progress_bar: bool = True) -> Tuple[ScoresDict, ScoresDict, ParametersDict]:
+                    progress_bar: bool = True) -> Tuple[ScoresDict, ScoresDict, pd.DataFrame]:
     # TODO: Handle n_jobs > 1
     n_iterations = int(n_iterations)
     if n_iterations < 1:
@@ -75,9 +74,9 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
                                                   param_values,
                                                   use_exchange_distributions=True,
                                                   use_parameters_distributions=True)
-
         scores = concat_scores_dicts(scores, scores_i)
-        parameters = concat_parameters_dicts(parameters, parameters_i)
+        if len(parameters) > 0:
+            parameters[f"iter_{i}"] = parameters_i["iter_0"]
 
         elapsed = time.time() - start_time
         remaining = elapsed / (i+1) * (n_iterations - i + 1)

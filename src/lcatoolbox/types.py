@@ -16,10 +16,6 @@ ImpactCategoryTuple = Tuple[str, str, str, str]
 #                     ic1: [0.3, ...],},}
 ScoresDict = Dict[str, Dict[ImpactCategoryTuple, List[float]]]
 
-# ParametersDict: {"param0": {"type": "independent" OR "dependent",
-#                             "values": [3, ...]},}
-ParametersDict = Dict[str, Dict[str, Any]]
-
 def activity_string(activity: bd.backends.proxies.Activity) -> str:
     try:
         product = activity["reference product"]
@@ -43,18 +39,6 @@ def concat_scores_dicts(scores_1: ScoresDict, scores_2: ScoresDict) -> ScoresDic
             concat_scores[act_key][ic_key] += ic_scores
 
     return concat_scores
-
-def concat_parameters_dicts(params_1: ParametersDict, params_2: ParametersDict) -> ParametersDict:
-    # Check that dicts have the same keys
-    if params_1.keys() != params_2.keys():
-        raise ValueError("params_1 and params_2 must have the same parameters.")
-
-    # Concatenate
-    concat_parameters = copy.deepcopy(params_1)
-    for param_key in params_2.keys():
-        concat_parameters[param_key]["values"] += params_2[param_key]["values"]
-
-    return concat_parameters
 
 def get_exchange(id_: int) -> bd.backends.Exchange:
     ED = bd.backends.schema.ExchangeDataset
