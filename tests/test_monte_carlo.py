@@ -79,13 +79,13 @@ class TestMonteCarlo:
 
         # Validation of parameters
         assert len(parameters) == len(ProjectParameter.select())
-        assert set(parameters.columns) == {"parameter", "type"} | {f"iter_{i}" for i in range(n_iterations)}
+        assert set(parameters.columns) == {"parameter", "type"} | {f"value_{i}" for i in range(n_iterations)}
 
         # Correct values
         assert set(parameters["parameter"].unique()) == {param.name for param in ProjectParameter.select()}
 
         # Values differ from one iteration to the other
-        assert not parameters["iter_0"].equals(parameters["iter_1"])
+        assert not parameters["value_0"].equals(parameters["value_1"])
 
     def test_run_monte_carlo_no_parameters(self):
         # Ensure that everything runs smoothly when no ProjectParameters have been defined.

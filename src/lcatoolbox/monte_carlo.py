@@ -76,7 +76,7 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
                                                   use_parameters_distributions=True)
         scores = concat_scores_dicts(scores, scores_i)
         if len(parameters) > 0:
-            parameters[f"iter_{i}"] = parameters_i["iter_0"]
+            parameters[f"value_{i}"] = parameters_i["value_0"]
 
         elapsed = time.time() - start_time
         remaining = elapsed / (i+1) * (n_iterations - i + 1)

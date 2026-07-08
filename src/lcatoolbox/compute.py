@@ -101,7 +101,7 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
             param_type = "dependent"
         parameters.append({"parameter": param.name,
                            "type": param_type,
-                           "iter_0": param.amount})
+                           "value_0": param.amount})
     df_parameters = pd.DataFrame(parameters)
 
     return scores, df_parameters

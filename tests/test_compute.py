@@ -33,7 +33,7 @@ class TestCompute:
                 assert len(ic_scores) == 1
 
         assert len(parameters) == len(ProjectParameter.select())
-        assert set(parameters.columns) == {"parameter", "type", "iter_0"}
+        assert set(parameters.columns) == {"parameter", "type", "value_0"}
 
         # Scores differ from one activity to the other
         assert (scores[activity_string(activities[0])][impact_categories[0]]
@@ -108,8 +108,8 @@ class TestCompute:
                                                         parameters={"some_random_value": 3})
 
         # Parameter value is reflected in parameters
-        assert parameters_1[parameters_1["parameter"] == "some_random_value"]["iter_0"].values[0] == 2
-        assert parameters_2[parameters_2["parameter"] == "some_random_value"]["iter_0"].values[0] == 3
+        assert parameters_1[parameters_1["parameter"] == "some_random_value"]["value_0"].values[0] == 2
+        assert parameters_2[parameters_2["parameter"] == "some_random_value"]["value_0"].values[0] == 3
 
         # Scores differ from one iteration to the other
         assert scores_1 != scores_2

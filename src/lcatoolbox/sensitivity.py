@@ -176,7 +176,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                                                       param_values)
 
             scores = concat_scores_dicts(scores, scores_i)
-            parameters[f"iter_{i}"] = parameters_i["iter_0"]
+            parameters[f"value_{i}"] = parameters_i["value_0"]
 
             elapsed = time.time() - start_time
             remaining = elapsed / (i+1) * (n_iterations - i + 1)
@@ -276,7 +276,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                     if method.ignore_dependent and parameters[parameters["parameter"] == param]["type"].values[0] == "dependent":
                         continue
 
-                    x = parameters[parameters["parameter"] == param][[f"iter_{i}" for i in range(method.N)]].values.flatten()
+                    x = parameters[parameters["parameter"] == param][[f"value_{i}" for i in range(method.N)]].values.flatten()
                     S1_alg_1 = _main_effect_li_2016_alg_1(np.array(x), np.array(y), method.n_bins)
                     S1_alg_2 = _main_effect_li_2016_alg_2(np.array(x), np.array(y), method.n_bins)
                     index.append(param)
@@ -332,7 +332,7 @@ def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
         if not param in list(parameters_nominal["parameter"]):
             raise ValueError(f"Parameter {param} not found in the model.")
 
-        param_nominal = parameters_nominal[parameters_nominal["parameter"] == param]["iter_0"].values[0]
+        param_nominal = parameters_nominal[parameters_nominal["parameter"] == param]["value_0"].values[0]
         param_perturbed = (1+perturbation_size) * param_nominal
 
         scores_perturbed, _ = calculate_scores(activities,
