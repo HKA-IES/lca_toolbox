@@ -287,7 +287,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                     data.append({"S1_alg_1": S1_alg_1,
                                    "S1_alg_2": S1_alg_2,})
                 for bact in df_scores_background["activity"].unique():
-                    criteria = (df_scores_background["activity"] == act) & (df_scores_background["impact_category"] == ic)
+                    criteria = (df_scores_background["activity"] == bact) & (df_scores_background["impact_category"] == ic)
                     x = np.array(df_scores_background[criteria][value_cols]).flatten()
                     S1_alg_1 = _main_effect_li_2016_alg_1(np.array(x), np.array(y), method.n_bins)
                     S1_alg_2 = _main_effect_li_2016_alg_2(np.array(x), np.array(y), method.n_bins)
