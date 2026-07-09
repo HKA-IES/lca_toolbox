@@ -22,33 +22,34 @@ class TestCompute:
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
 
-        scores, parameters = calculate_scores(activities,
+        df_scores, df_parameters = calculate_scores(activities,
                                                     impact_categories,)
 
         # Expected length
-        assert len(scores) == len(activities)
-        for act_scores in scores.values():
-            assert len(act_scores) == len(impact_categories)
-            for ic_scores in act_scores.values():
-                assert len(ic_scores) == 1
+        assert len(df_scores) == len(activities) * len(impact_categories)
+        assert set(df_scores.columns) == {"activity", "impact_category", "value_0"}
+        assert set(df_scores["activity"].unique()) == {activity_string(act) for act in activities}
+        assert set(df_scores["impact_category"].unique()) == {str(ic) for ic in impact_categories}
 
-        assert len(parameters) == len(ProjectParameter.select())
-        assert set(parameters.columns) == {"parameter", "type", "value_0"}
+        assert len(df_parameters) == len(ProjectParameter.select())
+        assert set(df_parameters.columns) == {"parameter", "type", "value_0"}
 
         # Scores differ from one activity to the other
-        assert (scores[activity_string(activities[0])][impact_categories[0]]
-                != scores[activity_string(activities[1])][impact_categories[0]])
+        df_scores_act_0 = df_scores[df_scores["activity"] == activity_string(activities[0])]
+        df_scores_act_1 = df_scores[df_scores["activity"] == activity_string(activities[1])]
+        assert not df_scores_act_0.equals(df_scores_act_1)
 
         # Scores differ from one impact category to the other
-        assert (scores[activity_string(activities[0])][impact_categories[0]]
-                != scores[activity_string(activities[0])][impact_categories[1]])
+        df_scores_ic_0 = df_scores[df_scores["impact_category"] == str(impact_categories[0])]
+        df_scores_ic_1 = df_scores[df_scores["impact_category"] == str(impact_categories[1])]
+        assert not df_scores_ic_0.equals(df_scores_ic_1)
 
-        scores_repeat, parameters_repeat = calculate_scores(activities,
+        df_scores_repeat, df_parameters_repeat = calculate_scores(activities,
                                                     impact_categories, )
 
         # Scores are equivalent when re-calculated
-        assert scores == scores_repeat
-        assert parameters.equals(parameters_repeat)
+        assert df_scores.equals(df_scores_repeat)
+        assert df_parameters.equals(df_parameters_repeat)
 
     def test_calculate_scores_use_exchange_distributions(self, imported_activities):
         activities = imported_activities
@@ -58,18 +59,18 @@ class TestCompute:
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
 
-        scores_1, parameters_1 = calculate_scores(activities,
+        df_scores_1, df_parameters_1 = calculate_scores(activities,
                                                     impact_categories,
                                                     use_exchange_distributions=True)
-        scores_2, parameters_2 = calculate_scores(activities,
+        df_scores_2, df_parameters_2 = calculate_scores(activities,
                                                     impact_categories,
                                                     use_exchange_distributions=True)
 
         # Scores differ from one iteration to the other
-        assert scores_1 != scores_2
+        assert not df_scores_1.equals(df_scores_2)
 
         # Parameters are the same from one iteration to the other
-        assert parameters_1.equals(parameters_2)
+        assert df_parameters_1.equals(df_parameters_2)
 
     def test_calculate_scores_use_parameters_distributions(self, imported_activities):
         activities = imported_activities
@@ -79,18 +80,18 @@ class TestCompute:
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
 
-        scores_1, parameters_1 = calculate_scores(activities,
+        df_scores_1, df_parameters_1 = calculate_scores(activities,
                                                         impact_categories,
                                                         use_parameters_distributions=True)
-        scores_2, parameters_2 = calculate_scores(activities,
+        df_scores_2, df_parameters_2 = calculate_scores(activities,
                                                         impact_categories,
                                                         use_parameters_distributions=True)
 
         # Scores differ from one iteration to the other
-        assert scores_1 != scores_2
+        assert not df_scores_1.equals(df_scores_2)
 
         # Parameters differ from one iteration to the other
-        assert not parameters_1.equals(parameters_2)
+        assert not df_parameters_1.equals(df_parameters_2)
 
     def test_calculate_scores_set_parameters(self, imported_activities):
         activities = imported_activities
@@ -100,22 +101,22 @@ class TestCompute:
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
 
-        scores_1, parameters_1 = calculate_scores(activities,
+        df_scores_1, df_parameters_1 = calculate_scores(activities,
                                                         impact_categories,
                                                         parameters={"some_random_value": 2})
-        scores_2, parameters_2 = calculate_scores(activities,
+        df_scores_2, df_parameters_2 = calculate_scores(activities,
                                                         impact_categories,
                                                         parameters={"some_random_value": 3})
 
         # Parameter value is reflected in parameters
-        assert parameters_1[parameters_1["parameter"] == "some_random_value"]["value_0"].values[0] == 2
-        assert parameters_2[parameters_2["parameter"] == "some_random_value"]["value_0"].values[0] == 3
+        assert df_parameters_1[df_parameters_1["parameter"] == "some_random_value"]["value_0"].values[0] == 2
+        assert df_parameters_2[df_parameters_2["parameter"] == "some_random_value"]["value_0"].values[0] == 3
 
         # Scores differ from one iteration to the other
-        assert scores_1 != scores_2
+        assert not df_scores_1.equals(df_scores_2)
 
         # Parameters differ from one iteration to the other
-        assert not parameters_1.equals(parameters_2)
+        assert not df_parameters_1.equals(df_parameters_2)
 
     def test_calculate_scores_set_parameters_do_not_exist(self, imported_activities):
         activities = imported_activities
@@ -150,8 +151,10 @@ class TestCompute:
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
-        scores, parameters = calculate_scores(activities,
+        _, df_parameters = calculate_scores(activities,
                                               impact_categories, )
+
+        assert len(df_parameters) == 0
 
     def test_calculate_scores_negative_reference_amount(self):
         # When the reference amount is negative, the calculated amount should also be negative
@@ -162,11 +165,9 @@ class TestCompute:
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
                               'user deprivation potential (deprivation-weighted water consumption)')]
-        scores, parameters = calculate_scores(activities,
+        df_scores, _ = calculate_scores(activities,
                                               impact_categories, )
-
-        for ic in impact_categories:
-            assert scores[activity_string(activities[0])][ic][0] >= 0
+        assert (df_scores["value_0"] >= 0).all()
 
     def test_calculate_scores_no_activities(self):
         activities = []

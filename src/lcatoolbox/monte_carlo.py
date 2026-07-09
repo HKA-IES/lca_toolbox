@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # import built-in module
-from typing import Tuple, List, Dict
+from typing import Tuple, List
 import time
 
 # import third-party modules
@@ -13,7 +13,7 @@ import stats_arrays
 
 # import your own module
 from .compute import calculate_scores
-from .types import ScoresDict, ImpactCategoryTuple, concat_scores_dicts, activity_string
+from .types import ImpactCategoryTuple, activity_string
 
 
 # TODO: support providing arrays of parameters (for use with Saltelli sampling, for example)
@@ -21,7 +21,7 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
                     impact_categories: List[ImpactCategoryTuple],
                     n_iterations: int,
                     foreground_db_name: str = "foreground",
-                    progress_bar: bool = True) -> Tuple[ScoresDict, ScoresDict, pd.DataFrame]:
+                    progress_bar: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # TODO: Handle n_jobs > 1
     n_iterations = int(n_iterations)
     if n_iterations < 1:
@@ -40,7 +40,7 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
         background_activities += get_background_activities(act, foreground_db_name)
     background_activities = list(set(background_activities))
 
-    # We instantiate one sampler for all parameters to save time on initiating the sampler and generating samples.
+    # We instantiate one sampler for all df_parameters to save time on initiating the sampler and generating samples.
     project_params = [p for p in ProjectParameter.select() if p.formula is None]
     param_values = {}
     if len(project_params) > 0:
@@ -53,9 +53,9 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
         else:
             param_values = {param.name: value for param, value in zip(project_params, params_array[:, 0])}
 
-    # first iteration to generate scores, parameters
+    # first iteration to generate df_scores, df_parameters
     start_time = time.time()
-    scores, parameters = calculate_scores(activities + background_activities,
+    df_scores, df_parameters = calculate_scores(activities + background_activities,
                                           impact_categories,
                                           param_values,
                                           use_exchange_distributions=True,
@@ -69,45 +69,53 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
     for i in range(1, n_iterations):
         if len(project_params) > 0:
             param_values = {param.name: value for param, value in zip(project_params, params_array[:, i])}
-        scores_i, parameters_i = calculate_scores(activities + background_activities,
+        df_scores_i, df_parameters_i = calculate_scores(activities + background_activities,
                                                   impact_categories,
                                                   param_values,
                                                   use_exchange_distributions=True,
                                                   use_parameters_distributions=True)
-        scores = concat_scores_dicts(scores, scores_i)
-        if len(parameters) > 0:
-            parameters[f"value_{i}"] = parameters_i["value_0"]
+        df_scores[f"value_{i}"] = df_scores_i[f"value_0"]
+        if len(df_parameters) > 0:
+            df_parameters[f"value_{i}"] = df_parameters_i["value_0"]
 
         elapsed = time.time() - start_time
         remaining = elapsed / (i+1) * (n_iterations - i + 1)
         if progress_bar:
             _print_monte_carlo_progress(i, n_iterations, elapsed, remaining)
 
-    scores_background = {}
-    for bact in background_activities:
-        bact_tuple = activity_string(bact)
-        scores_background[bact_tuple] = scores[bact_tuple]
-        del scores[bact_tuple]
+    # Separate background activities from target activities
+    activities_rows_idx = df_scores["activity"].isin([activity_string(act) for act in activities])
+    background_activities_rows_idx = df_scores["activity"].isin([activity_string(act) for act in background_activities])
 
-    return scores, scores_background, parameters
+    df_scores_background = df_scores.iloc[background_activities_rows_idx]
+    df_scores = df_scores.iloc[activities_rows_idx]
 
-def discernability_analysis(scores: ScoresDict) -> Dict[str, pd.DataFrame]:
-    if len(scores) < 2:
+    return df_scores, df_scores_background, df_parameters
+
+def discernability_analysis(df_scores: pd.DataFrame) -> pd.DataFrame:
+    activities = list(df_scores["activity"].unique())
+    if len(activities) < 2:
         raise ValueError("scores must contain scores for at least two activities.")
+    impact_categories = list(df_scores["impact_category"].unique())
+    n_iterations = len(df_scores.columns) - 2
+    value_cols = [f"value_{i}" for i in range(n_iterations)]
 
-    impact_categories = list(list(scores.values())[0].keys())
-    activities = list(scores.keys())
-    n_iterations = len(scores[activities[0]][impact_categories[0]])
-
-    results = {}
+    results = []
     for ic in impact_categories:
-        arr = np.zeros((len(activities), len(activities)))
-        for i, act_i in enumerate(activities):
-            for j, act_j in enumerate(activities):
-                arr[i, j] = np.sum(np.array(scores[act_i][ic]) > np.array(scores[act_j][ic]))
-        results[ic] = arr/n_iterations
+        for act_A in activities:
+            for act_B in activities:
+                criteria_act_A = (df_scores["activity"] == act_A) & (df_scores["impact_category"] == ic)
+                values_act_A = np.array(df_scores[criteria_act_A][value_cols]).flatten()
+                criteria_act_B = (df_scores["activity"] == act_B) & (df_scores["impact_category"] == ic)
+                values_act_B = np.array(df_scores[criteria_act_B][value_cols]).flatten()
 
-    return results
+                P_A_ov_B = np.sum(values_act_A > values_act_B) / n_iterations
+                results.append({"activity_A": act_A,
+                                "activity_B": act_B,
+                                "impact_category": ic,
+                                "P_A>B": P_A_ov_B})
+    df_results = pd.DataFrame(results)
+    return df_results
 
 def _print_monte_carlo_progress(iteration: int, total: int, seconds_elapsed: float, seconds_remaining: float):
     # Adapted from https://stackoverflow.com/questions/3173320/text-progress-bar-in-terminal-with-block-characters

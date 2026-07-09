@@ -22,7 +22,7 @@ from SALib.analyze import pawn as salib_analyze_pawn
 
 # import your own module
 from .compute import calculate_scores
-from .types import ScoresDict, ImpactCategoryTuple, activity_string, concat_scores_dicts
+from .types import ImpactCategoryTuple, activity_string
 from .monte_carlo import run_monte_carlo
 
 @dataclass
@@ -89,14 +89,14 @@ Method = Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod, RBDFASTMethod
 def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                              impact_categories: List[ImpactCategoryTuple],
                              method: Method,
-                             progress_bar: bool = True)  -> Tuple[pd.DataFrame, ScoresDict, pd.DataFrame]:
+                             progress_bar: bool = True)  -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     if (isinstance(method, SobolSaltelliMethod) or
             isinstance(method, FASTMethod) or
             isinstance(method, RBDFASTMethod) or
             isinstance(method, PAWNMethod)):
         project_params = [p for p in ProjectParameter.select() if p.formula is None]
         if len(project_params) == 0:
-            raise RuntimeError("No parameters in project, so not possible to do uncertainty apportioning.")
+            raise RuntimeError("No df_parameters in project, so not possible to do uncertainty apportioning.")
 
         salib_problem = {
             'names': [],
@@ -125,7 +125,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                     salib_problem['dists'].append("norm")
                     salib_problem['bounds'].append([p_uncertainty["loc"][0], p_uncertainty["scale"][0]])
             elif p_uncertainty["uncertainty_type"] == stats_arrays.LognormalUncertainty.id:
-                # TODO: Check that these are the proper parameters
+                # TODO: Check that these are the proper df_parameters
                 salib_problem['dists'].append("lognorm")
                 salib_problem['bounds'].append([p_uncertainty["loc"][0], p_uncertainty["scale"][0]])
             elif p_uncertainty["uncertainty_type"] == stats_arrays.WeibullUncertainty.id:
@@ -157,10 +157,10 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
 
         n_iterations = len(salib_param_values)
 
-        # first iteration to generate scores, parameters
+        # first iteration to generate df_scores, df_parameters
         start_time = time.time()
         param_values = {name: values for name, values in zip(salib_problem["names"], salib_param_values[0])}
-        scores, parameters = calculate_scores(activities,
+        df_scores, df_parameters = calculate_scores(activities,
                                               impact_categories,
                                               param_values)
         elapsed = time.time() - start_time
@@ -171,12 +171,12 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
         for i in range(1, len(salib_param_values)):
             param_values = {name: values for name, values in zip(salib_problem["names"], salib_param_values[i])}
 
-            scores_i, parameters_i = calculate_scores(activities,
+            df_scores_i, df_parameters_i = calculate_scores(activities,
                                                       impact_categories,
                                                       param_values)
 
-            scores = concat_scores_dicts(scores, scores_i)
-            parameters[f"value_{i}"] = parameters_i["value_0"]
+            df_scores[f"value_{i}"] = df_scores_i["value_0"]
+            df_parameters[f"value_{i}"] = df_parameters_i["value_0"]
 
             elapsed = time.time() - start_time
             remaining = elapsed / (i+1) * (n_iterations - i + 1)
@@ -184,9 +184,11 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                 _print_uncertainty_apportioning_progress(i, n_iterations, elapsed, remaining)
 
         ua_results = []
-        for act in scores.keys():
-            for ic in scores[act].keys():
-                salib_Y = np.array(scores[act][ic])
+        value_cols = [f"value_{i}" for i in range(n_iterations)]
+        for act in df_scores["activity"].unique():
+            for ic in df_scores["impact_category"].unique():
+                criteria = (df_scores["activity"] == act) & (df_scores["impact_category"] == ic)
+                salib_Y = np.array(df_scores[criteria][value_cols]).flatten()
                 if isinstance(method, SobolSaltelliMethod):
                     salib_Si = salib_analyze_sobol.analyze(salib_problem, salib_Y,
                                                            calc_second_order=method.calc_second_order,
@@ -253,37 +255,40 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                 ua_results.append(df)
 
         ua_df = pd.concat(ua_results, ignore_index=True)
-        return ua_df, scores, parameters
+        return ua_df, df_scores, df_parameters
     elif isinstance(method, SobolLi2016Method):
         # TODO: Integrate the Monte-Carlo-based estimations more cleanly.
-        scores, scores_background, parameters = run_monte_carlo(activities,
+        df_scores, df_scores_background, df_parameters = run_monte_carlo(activities,
                                                                 impact_categories,
                                                                 n_iterations=method.N,
                                                                 progress_bar=progress_bar,)
-        activities = list(scores.keys())
-        background_activities = list(scores_background.keys())
-        impact_categories = list(scores[activities[0]].keys())
+        #activities = list(df_scores.keys())
+        #background_activities = list(df_scores_background.keys())
+        #impact_categories = list(df_scores[activities[0]].keys())
 
         ua_results = []
+        value_cols = [f"value_{i}" for i in range(method.N)]
 
-        for act in activities:
-            for ic in impact_categories:
+        for act in df_scores["activity"].unique():
+            for ic in df_scores["impact_category"].unique():
                 data = []
                 index = []
-                y = scores[act][ic]
-                for param in parameters["parameter"].unique():
+                criteria = (df_scores["activity"] == act) & (df_scores["impact_category"] == ic)
+                y = np.array(df_scores[criteria][value_cols]).flatten()
+                for param in df_parameters["parameter"].unique():
 
-                    if method.ignore_dependent and parameters[parameters["parameter"] == param]["type"].values[0] == "dependent":
+                    if method.ignore_dependent and df_parameters[df_parameters["parameter"] == param]["type"].values[0] == "dependent":
                         continue
 
-                    x = parameters[parameters["parameter"] == param][[f"value_{i}" for i in range(method.N)]].values.flatten()
+                    x = df_parameters[df_parameters["parameter"] == param][[f"value_{i}" for i in range(method.N)]].values.flatten()
                     S1_alg_1 = _main_effect_li_2016_alg_1(np.array(x), np.array(y), method.n_bins)
                     S1_alg_2 = _main_effect_li_2016_alg_2(np.array(x), np.array(y), method.n_bins)
                     index.append(param)
                     data.append({"S1_alg_1": S1_alg_1,
                                    "S1_alg_2": S1_alg_2,})
-                for bact in background_activities:
-                    x = scores_background[bact][ic]
+                for bact in df_scores_background["activity"].unique():
+                    criteria = (df_scores_background["activity"] == act) & (df_scores_background["impact_category"] == ic)
+                    x = np.array(df_scores_background[criteria][value_cols]).flatten()
                     S1_alg_1 = _main_effect_li_2016_alg_1(np.array(x), np.array(y), method.n_bins)
                     S1_alg_2 = _main_effect_li_2016_alg_2(np.array(x), np.array(y), method.n_bins)
                     index.append(str(bact))
@@ -297,11 +302,9 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                 df["parameter"] = index
                 ua_results.append(df)
 
-        scores_combined = dict(scores)
-        scores_combined.update(scores_background)
-
+        df_scores_combined = pd.concat([df_scores, df_scores_background])
         ua_df = pd.concat(ua_results, ignore_index=True)
-        return ua_df, scores_combined, parameters
+        return ua_df, df_scores_combined, df_parameters
     else:
         raise ValueError("Unsupported method. Should be one of SobolSaltelliMethod, SobolLi2016Method, FASTMethod.")
 
@@ -316,7 +319,7 @@ def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
     elasticity = (parameter_nominal / score_nominal) * sensitivity
     """
     # First compute nominal scores
-    scores_nominal, parameters_nominal = calculate_scores(activities,
+    df_scores_nominal, df_parameters_nominal = calculate_scores(activities,
                                   impact_categories,
                                   parameters={},
                                   use_exchange_distributions=False,
@@ -329,13 +332,13 @@ def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
             results[activity_string(act)][ic] = {}
 
     for param in parameters:
-        if not param in list(parameters_nominal["parameter"]):
+        if not param in list(df_parameters_nominal["parameter"]):
             raise ValueError(f"Parameter {param} not found in the model.")
 
-        param_nominal = parameters_nominal[parameters_nominal["parameter"] == param]["value_0"].values[0]
+        param_nominal = df_parameters_nominal[df_parameters_nominal["parameter"] == param]["value_0"].values[0]
         param_perturbed = (1+perturbation_size) * param_nominal
 
-        scores_perturbed, _ = calculate_scores(activities,
+        df_scores_perturbed, _ = calculate_scores(activities,
                                                 impact_categories,
                                                 parameters={param: param_perturbed},
                                                 use_exchange_distributions=False,
@@ -343,8 +346,11 @@ def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
 
         for act in activities:
             for ic in impact_categories:
-                score_nominal = scores_nominal[activity_string(act)][ic][0]
-                score_perturbed = scores_perturbed[activity_string(act)][ic][0]
+                criteria = (df_scores_nominal["activity"] == activity_string(act)) & (df_scores_nominal["impact_category"] == str(ic))
+                score_nominal = df_scores_nominal[criteria]["value_0"].values[0]
+                criteria = (df_scores_perturbed["activity"] == activity_string(act)) & (
+                            df_scores_perturbed["impact_category"] == str(ic))
+                score_perturbed = df_scores_perturbed[criteria]["value_0"].values[0]
                 sensitivity = ((score_perturbed - score_nominal)
                                / (param_perturbed - param_nominal))
                 elasticity = (param_nominal / score_nominal) * sensitivity

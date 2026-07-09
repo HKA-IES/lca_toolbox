@@ -11,14 +11,14 @@ import stats_arrays
 import pandas as pd
 
 # import your own module
-from .types import ScoresDict, ImpactCategoryTuple, activity_string
+from .types import ImpactCategoryTuple, activity_string
 
 
 def calculate_scores(activities: List[bd.backends.proxies.Activity],
                       impact_categories: List[ImpactCategoryTuple],
                       parameters: Dict[str, float] = {},
                       use_exchange_distributions: bool = False,
-                      use_parameters_distributions: bool = False) -> Tuple[ScoresDict, pd.DataFrame]:
+                      use_parameters_distributions: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Compute scores for all activities in activities (demand=1) and all impact_categories.
     All parameters are set to the values in parameters.
@@ -85,13 +85,13 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
     # taking a copy of lca.scores because .scores is recalculated every time it is called.
     lca_scores = lca.scores
 
-    scores = {}
-
-
+    scores = []
     for act in activities:
-        scores[activity_string(act)] = {}
         for ic in impact_categories:
-            scores[activity_string(act)][ic] = [lca_scores[ic, str(act.id)]]
+            scores.append({"activity": activity_string(act),
+                           "impact_category": str(ic),
+                           "value_0": lca_scores[ic, str(act.id)]})
+    df_scores = pd.DataFrame(scores)
 
     parameters = []
     for param in ProjectParameter.select():
@@ -104,4 +104,4 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
                            "value_0": param.amount})
     df_parameters = pd.DataFrame(parameters)
 
-    return scores, df_parameters
+    return df_scores, df_parameters
