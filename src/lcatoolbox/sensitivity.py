@@ -90,11 +90,12 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                              impact_categories: List[ImpactCategoryTuple],
                              method: Method,
                              progress_bar: bool = True)  -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    project_params = [p for p in ProjectParameter.select() if p.formula is None]
+
     if (isinstance(method, SobolSaltelliMethod) or
             isinstance(method, FASTMethod) or
             isinstance(method, RBDFASTMethod) or
             isinstance(method, PAWNMethod)):
-        project_params = [p for p in ProjectParameter.select() if p.formula is None]
         if len(project_params) == 0:
             raise RuntimeError("No df_parameters in project, so not possible to do uncertainty apportioning.")
 
@@ -262,6 +263,10 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                                                                 impact_categories,
                                                                 n_iterations=method.N,
                                                                 progress_bar=progress_bar,)
+
+        criteria = df_parameters["parameter"].isin([p.name for p in project_params])
+        df_parameters = df_parameters[criteria]
+
         #activities = list(df_scores.keys())
         #background_activities = list(df_scores_background.keys())
         #impact_categories = list(df_scores[activities[0]].keys())
