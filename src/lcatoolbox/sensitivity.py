@@ -19,6 +19,7 @@ from SALib.analyze import sobol as salib_analyze_sobol
 from SALib.analyze import fast as salib_analyze_fast
 from SALib.analyze import rbd_fast as salib_analyze_rbd_fast
 from SALib.analyze import pawn as salib_analyze_pawn
+from SALib.analyze import delta as salib_analyze_delta
 
 # import your own module
 from .compute import calculate_scores
@@ -84,7 +85,17 @@ class PAWNMethod:
     S: int = 10
     print_to_console: bool = False
 
-Method = Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod]
+@dataclass
+class DeltaMomentIndependentMethod:
+    """
+    Delta Moment-Independent Measure
+    """
+    N: int
+    seed: int | np.random.Generator | None = None
+    print_to_console: bool = False
+
+Method = Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod,
+DeltaMomentIndependentMethod]
 
 def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                              impact_categories: List[ImpactCategoryTuple],
@@ -92,10 +103,12 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                              progress_bar: bool = True)  -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     project_params = [p for p in ProjectParameter.select() if p.formula is None]
 
+    # TODO: Support delta moment-independent (Borgonovo)
     if (isinstance(method, SobolSaltelliMethod) or
             isinstance(method, FASTMethod) or
             isinstance(method, RBDFASTMethod) or
-            isinstance(method, PAWNMethod)):
+            isinstance(method, PAWNMethod) or
+            isinstance(method, DeltaMomentIndependentMethod)):
         if len(project_params) == 0:
             raise RuntimeError("No df_parameters in project, so not possible to do uncertainty apportioning.")
 
@@ -151,7 +164,9 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                                                           N=method.N,
                                                           M=method.M,
                                                           seed=method.seed,)
-        elif isinstance(method, RBDFASTMethod) or isinstance(method, PAWNMethod):
+        elif (isinstance(method, RBDFASTMethod) or
+              isinstance(method, PAWNMethod) or
+              isinstance(method, DeltaMomentIndependentMethod)):
             salib_param_values = salib_sample_latin.sample(salib_problem,
                                                           N=method.N,
                                                           seed=method.seed, )
@@ -250,6 +265,19 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                         columns=["minimum", "mean", "median", "maximum", "CV", "stdev"])
                     df["median_rank"] = df["median"].rank(ascending=False)
                     df["maximum_rank"] = df["maximum"].rank(ascending=False)
+                    df["parameter"] = salib_Si["names"]
+                elif isinstance(method, DeltaMomentIndependentMethod):
+                    salib_Si = salib_analyze_delta.analyze(salib_problem,
+                                                          salib_param_values,
+                                                          salib_Y,
+                                                          print_to_console=method.print_to_console,
+                                                          seed=method.seed, )
+                    df = pd.DataFrame(
+                        data=np.stack([salib_Si["delta"], salib_Si["delta_conf"], salib_Si["S1"],
+                                       salib_Si["S1_conf"]], axis=-1),
+                        columns=["delta", "delta_conf", "S1", "S1_conf"])
+                    df["delta_rank"] = df["delta"].rank(ascending=False)
+                    df["S1_rank"] = df["S1"].rank(ascending=False)
                     df["parameter"] = salib_Si["names"]
                 df["activity"] = act
                 df["impact_category"] = str(ic)

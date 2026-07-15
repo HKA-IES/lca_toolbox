@@ -9,7 +9,7 @@ import bw2calc as bc
 
 # import your own module
 from lcatoolbox import (uncertainty_apportioning, local_sensitivity_analysis, activity_string, SobolSaltelliMethod,
-                        SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod)
+                        SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod, DeltaMomentIndependentMethod)
 from setup_bw_project import setup_brightway, imported_activities
 
 class TestSensitivity:
@@ -102,6 +102,28 @@ class TestSensitivity:
         assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
         expected_cols = {"parameter", "activity", "impact_category", "minimum", "mean", "median", "maximum", "CV",
                          "stdev", "median_rank", "maximum_rank"}
+        assert set(df_ua.columns) == expected_cols
+
+    def test_uncertainty_apportioning_deltamomentindependent(self, imported_activities):
+        activities = imported_activities
+        impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'water use',
+                              'user deprivation potential (deprivation-weighted water consumption)')]
+
+        # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
+        # Why? I don't know...
+        _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
+
+        df_ua, _, _ = uncertainty_apportioning(activities,
+                                            impact_categories,
+                                            DeltaMomentIndependentMethod(N=20))
+
+        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
+        expected_cols = {"parameter", "activity", "impact_category", "delta", "delta_conf",
+                         "delta_rank", "S1", "S1_conf", "S1_rank"}
         assert set(df_ua.columns) == expected_cols
 
     def test_uncertainty_apportioning_sobol_li_2016(self, imported_activities):
