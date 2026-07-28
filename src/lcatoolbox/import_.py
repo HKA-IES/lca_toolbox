@@ -247,6 +247,33 @@ def reset_foreground(foreground_db: str = "foreground"):
     foreground = bd.Database(foreground_db)
     foreground.register()
 
+def apply_openlca_preprocessing_to_ecoinvent(ecoinvent_db_name: str):
+    """
+    Some uncertainties from ecoinvent are much too high. This function applies the same pre-processing to the ecoinvent
+    database as done by GreenDelta for the OpenLCA version of Ecoinvent 3.11.
+
+    Specifically,
+    - all uncertainties in exchanges that are not log-normal are replaced by no uncertainty;
+    - geometric sigma for log-normal uncertainty in exchanges are capped at 4.
+
+    See https://www.openlca.org/ecoinvent-3-11-available-for-openlca/.
+    """
+    db_ei = bd.Database(ecoinvent_db_name)
+    n_activities = len(db_ei)
+    print(f"{n_activities} activities to update.")
+    for i, act in enumerate(db_ei):
+        if (i+1)%100 == 0:
+            print(f"{i+1} / {n_activities}")
+        for exc in act.exchanges():
+            if exc["uncertainty type"] == stats_arrays.UndefinedUncertainty.id:
+                pass
+            elif exc["uncertainty type"] == stats_arrays.LognormalUncertainty.id:
+                if exc["scale"] > np.log(4):
+                    exc["scale"] = np.log(4)
+                    exc.save()
+            else:
+                exc["uncertainty type"] = stats_arrays.UndefinedUncertainty.id
+                exc.save()
 
 def _uncertainty_from_pedigree_matrix(pedigree: Tuple[int, int, int, int, int],
                                       data_quality_system: str = "ecoinvent3") -> Dict[str, float]:

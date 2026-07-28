@@ -11,7 +11,7 @@ from bw2data.parameters import ActivityParameter, ProjectParameter
 import pytest
 
 # import your own module
-from lcatoolbox import import_foreground
+from lcatoolbox import import_foreground, apply_openlca_preprocessing_to_ecoinvent
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -26,13 +26,15 @@ def setup_brightway():
             version='3.12',
             system_model='cutoff',  # can be cutoff / apos / consequential / EN15804
         )
-
+        apply_openlca_preprocessing_to_ecoinvent("ecoinvent-3.12-cutoff")
     try:
         del bd.databases["foreground"]
         ProjectParameter.drop_table(safe=True, drop_sequences=True)
         ProjectParameter.create_table()
     except KeyError:
         pass
+
+
     foreground = bd.Database("foreground")
     foreground.register()
 
@@ -140,7 +142,7 @@ def fruit_salad():
     return fruit_salad
 
 if __name__ == "__main__":
-    bd.projects.delete_project("lca_toolbox_tests", delete_dir=True)
+    # bd.projects.delete_project("lca_toolbox_tests", delete_dir=True)
 
     bd.projects.set_current("lca_toolbox_tests")
     if 'ecoinvent-3.12-cutoff' in bd.databases:
@@ -152,12 +154,13 @@ if __name__ == "__main__":
             version='3.12',
             system_model='cutoff',  # can be cutoff / apos / consequential / EN15804
         )
-
+        apply_openlca_preprocessing_to_ecoinvent("ecoinvent-3.12-cutoff")
     try:
         del bd.databases["foreground"]
         ProjectParameter.drop_table(safe=True, drop_sequences=True)
         ProjectParameter.create_table()
     except KeyError:
         pass
+
     foreground = bd.Database("foreground")
     foreground.register()
