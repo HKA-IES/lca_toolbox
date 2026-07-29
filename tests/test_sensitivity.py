@@ -32,12 +32,13 @@ class TestSensitivity:
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
         assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
-        expected_cols = {"parameter", "activity", "impact_category", "S1", "S1_conf", "S1_rank", "ST", "ST_conf",
+        expected_cols = {"parameter", "type", "activity", "impact_category", "S1", "S1_conf", "S1_rank", "ST", "ST_conf",
                          "ST_rank"}
         expected_cols |= {f"S2_{param}" for param in df_ua["parameter"]}
         expected_cols |= {f"S2_{param}_conf" for param in df_ua["parameter"]}
         expected_cols |= {f"S2_{param}_rank" for param in df_ua["parameter"]}
         assert set(df_ua.columns) == expected_cols
+        assert set(df_ua["type"].unique()) == {"foreground", }
 
     def test_uncertainty_apportioning_fast(self, imported_activities):
         activities = imported_activities
@@ -57,12 +58,14 @@ class TestSensitivity:
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
         assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
-        expected_cols = {"parameter", "activity", "impact_category", "S1", "S1_conf", "S1_rank", "ST", "ST_conf",
+        expected_cols = {"parameter", "type", "activity", "impact_category", "S1", "S1_conf", "S1_rank", "ST", "ST_conf",
                          "ST_rank"}
         assert set(df_ua.columns) == expected_cols
+        assert set(df_ua["type"].unique()) == {"foreground", }
 
     def test_uncertainty_apportioning_rbd_fast(self, imported_activities):
         activities = imported_activities
+
         impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'water use',
@@ -78,9 +81,10 @@ class TestSensitivity:
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
-        expected_cols = {"parameter", "activity", "impact_category", "S1", "S1_conf", "S1_rank"}
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 7)
+        expected_cols = {"parameter", "type", "activity", "impact_category", "S1", "S1_conf", "S1_rank"}
         assert set(df_ua.columns) == expected_cols
+        assert set(df_ua["type"].unique()) == {"foreground", "background"}
 
     def test_uncertainty_apportioning_pawn(self, imported_activities):
         activities = imported_activities
@@ -99,10 +103,11 @@ class TestSensitivity:
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
-        expected_cols = {"parameter", "activity", "impact_category", "minimum", "mean", "median", "maximum", "CV",
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 7)
+        expected_cols = {"parameter", "type", "activity", "impact_category", "minimum", "mean", "median", "maximum", "CV",
                          "stdev", "median_rank", "maximum_rank"}
         assert set(df_ua.columns) == expected_cols
+        assert set(df_ua["type"].unique()) == {"foreground", "background"}
 
     def test_uncertainty_apportioning_deltamomentindependent(self, imported_activities):
         activities = imported_activities
@@ -121,10 +126,11 @@ class TestSensitivity:
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
-        expected_cols = {"parameter", "activity", "impact_category", "delta", "delta_conf",
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 7)
+        expected_cols = {"parameter", "type", "activity", "impact_category", "delta", "delta_conf",
                          "delta_rank", "S1", "S1_conf", "S1_rank"}
         assert set(df_ua.columns) == expected_cols
+        assert set(df_ua["type"].unique()) == {"foreground", "background"}
 
     def test_uncertainty_apportioning_sobol_li_2016(self, imported_activities):
         activities = imported_activities
@@ -144,9 +150,10 @@ class TestSensitivity:
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 12)
-        expected_cols = {"parameter", "activity", "impact_category", "S1_alg_1", "S1_alg_2", "S1_alg_1_rank", "S1_alg_2_rank"}
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 7)
+        expected_cols = {"parameter", "type", "activity", "impact_category", "S1_alg_1", "S1_alg_2", "S1_alg_1_rank", "S1_alg_2_rank"}
         assert set(df_ua.columns) == expected_cols
+        assert set(df_ua["type"].unique()) == {"foreground", "background"}
 
     def test_local_sensitivity_analysis(self, imported_activities):
         activities = imported_activities

@@ -51,6 +51,7 @@ class SobolLi2016Method:
     """
     N: int
     n_bins: int
+    seed: int | np.random.Generator | None = None
     ignore_dependent: bool = True
 
 @dataclass
@@ -97,249 +98,288 @@ class DeltaMomentIndependentMethod:
 Method = Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod,
 DeltaMomentIndependentMethod]
 
+# TODO: Add XGBoost feature importance, SHAP values?
+
 def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                              impact_categories: List[ImpactCategoryTuple],
                              method: Method,
                              progress_bar: bool = True)  -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Perform uncertainty apportioning on a set of activities.
+
+    Parameters
+    ----------
+    activities : List[bd.backends.proxies.Activity]
+        List of activities.
+    impact_categories : List[ImpactCategoryTuple]
+        List of impact categories.
+    method : Method
+        Uncertainty apportioning method and associated parameters.
+    progress_bar : bool
+        If True, progress bar will be displayed.
+
+    Returns
+    -------
+    results: pd.DataFrame
+        Results as a DataFrame with columns "parameter" (name of the parameter), "activity", "impact_category", as well
+         as the uncertainty apportioning results for a given method. Different methods yield different results. For
+         each result, a column with suffix "_rank" is created with the descending rank of parameters according to this
+         metric.
+    scores: pd.DataFrame
+        Calculate scores for each iteration of the process. Same structure as the outputs of .calculate_scores(),
+        .run_monte_carlo().
+    parameters: pd.DataFrame
+        Parameters for each iteration of the process. Same structure as the outputs of .calculate_scores(),
+        .run_monte_carlo().
+    """
     project_params = [p for p in ProjectParameter.select() if p.formula is None]
 
-    # TODO: Support delta moment-independent (Borgonovo)
-    if (isinstance(method, SobolSaltelliMethod) or
-            isinstance(method, FASTMethod) or
-            isinstance(method, RBDFASTMethod) or
-            isinstance(method, PAWNMethod) or
-            isinstance(method, DeltaMomentIndependentMethod)):
-        if len(project_params) == 0:
-            raise RuntimeError("No df_parameters in project, so not possible to do uncertainty apportioning.")
+    salib_problem = _get_salib_problem(project_params)
 
-        salib_problem = {
-            'names': [],
-            'num_vars': 0,
-            'bounds': [],
-            'dists': []
-        }
+    if isinstance(method, SobolSaltelliMethod):
+        salib_param_values = salib_sample_sobol.sample(salib_problem,
+                                                       N=method.N,
+                                                       calc_second_order=method.calc_second_order,
+                                                       scramble=method.scramble,
+                                                       skip_values=method.skip_values,
+                                                       seed=method.seed, )
+        include_background = False
+    elif isinstance(method, FASTMethod):
+        salib_param_values = salib_sample_fast.sample(salib_problem,
+                                                      N=method.N,
+                                                      M=method.M,
+                                                      seed=method.seed, )
+        include_background = False
+    elif (isinstance(method, RBDFASTMethod) or
+          isinstance(method, PAWNMethod) or
+          isinstance(method, DeltaMomentIndependentMethod) or
+          isinstance(method, SobolLi2016Method)):
+        salib_param_values = salib_sample_latin.sample(salib_problem,
+                                                       N=method.N,
+                                                       seed=method.seed, )
+        include_background = True
+    if salib_problem["num_vars"] == 0 and not include_background:
+        raise RuntimeError("No parameters to perform uncertainty apportioning.")
 
-        for p in project_params:
-            # TODO: Verify proper conversion.
-            p_uncertainty = p.data["uncertainty"]
-            if p_uncertainty["uncertainty_type"] == stats_arrays.UniformUncertainty.id:
-                salib_problem['dists'].append("unif")
-                salib_problem['bounds'].append([p_uncertainty["minimum"][0], p_uncertainty["maximum"][0]])
-            elif p_uncertainty["uncertainty_type"] == stats_arrays.TriangularUncertainty.id:
-                salib_problem['dists'].append("triang")
-                peak_percent = ((p_uncertainty["loc"][0] - p_uncertainty["minimum"][0]) /
-                                (p_uncertainty["maximum"][0] - p_uncertainty["minimum"][0]))
-                salib_problem['bounds'].append([p_uncertainty["minimum"][0], p_uncertainty["maximum"][0], peak_percent])
-            elif p_uncertainty["uncertainty_type"] == stats_arrays.NormalUncertainty.id:
-                if not np.isnan(p_uncertainty["minimum"]) and not np.isnan(p_uncertainty["maximum"]):
-                    salib_problem['dists'].append("truncnorm")
-                    salib_problem['bounds'].append([p_uncertainty["minimum"][0], p_uncertainty["maximum"][0],
-                                                    p_uncertainty["loc"][0], p_uncertainty["scale"][0]])
-                else:
-                    salib_problem['dists'].append("norm")
-                    salib_problem['bounds'].append([p_uncertainty["loc"][0], p_uncertainty["scale"][0]])
-            elif p_uncertainty["uncertainty_type"] == stats_arrays.LognormalUncertainty.id:
-                # TODO: Check that these are the proper df_parameters
-                salib_problem['dists'].append("lognorm")
-                salib_problem['bounds'].append([p_uncertainty["loc"][0], p_uncertainty["scale"][0]])
-            elif p_uncertainty["uncertainty_type"] == stats_arrays.WeibullUncertainty.id:
-                salib_problem['dists'].append("weibull")
-                salib_problem['bounds'].append([p_uncertainty["shape"][0], p_uncertainty["scale"][0],
-                                                p_uncertainty["loc"][0]])
-            else:
-                warnings.warn(f"Parameter {p.name} ignored because it uses an unsupported uncertainty type.")
-                continue
-            salib_problem['names'].append(p.name)
-            salib_problem["num_vars"] += 1
+    n_iterations = len(salib_param_values)
 
-        if isinstance(method, SobolSaltelliMethod):
-            salib_param_values = salib_sample_sobol.sample(salib_problem,
-                                                           N=method.N,
-                                                           calc_second_order=method.calc_second_order,
-                                                           scramble=method.scramble,
-                                                           skip_values=method.skip_values,
-                                                           seed=method.seed,)
-        elif isinstance(method, FASTMethod):
-            salib_param_values = salib_sample_fast.sample(salib_problem,
-                                                          N=method.N,
-                                                          M=method.M,
-                                                          seed=method.seed,)
-        elif (isinstance(method, RBDFASTMethod) or
-              isinstance(method, PAWNMethod) or
-              isinstance(method, DeltaMomentIndependentMethod)):
-            salib_param_values = salib_sample_latin.sample(salib_problem,
-                                                          N=method.N,
-                                                          seed=method.seed, )
+    if include_background:
+        background_activities = _get_background_activities(activities, "foreground")
+    else:
+        background_activities = []
 
-        n_iterations = len(salib_param_values)
+    # first iteration to generate df_scores, df_parameters
+    start_time = time.time()
+    param_values = {name: values for name, values in zip(salib_problem["names"], salib_param_values[0])}
+    df_scores, df_parameters = calculate_scores(activities+background_activities,
+                                                impact_categories,
+                                                param_values)
+    elapsed = time.time() - start_time
+    remaining = elapsed / 1 * n_iterations
+    if progress_bar:
+        _print_uncertainty_apportioning_progress(0, n_iterations, elapsed, remaining)
 
-        # first iteration to generate df_scores, df_parameters
-        start_time = time.time()
-        param_values = {name: values for name, values in zip(salib_problem["names"], salib_param_values[0])}
-        df_scores, df_parameters = calculate_scores(activities,
-                                              impact_categories,
-                                              param_values)
+    for i in range(1, n_iterations):
+        param_values = {name: values for name, values in zip(salib_problem["names"], salib_param_values[i])}
+
+        df_scores_i, df_parameters_i = calculate_scores(activities+background_activities,
+                                                        impact_categories,
+                                                        param_values)
+
+        df_scores[f"value_{i}"] = df_scores_i["value_0"]
+        df_parameters[f"value_{i}"] = df_parameters_i["value_0"]
+
         elapsed = time.time() - start_time
-        remaining = elapsed / 1 * n_iterations
+        remaining = elapsed / (i + 1) * (n_iterations - i + 1)
         if progress_bar:
-            _print_uncertainty_apportioning_progress(0, n_iterations, elapsed, remaining)
+            _print_uncertainty_apportioning_progress(i, n_iterations, elapsed, remaining)
 
-        for i in range(1, len(salib_param_values)):
-            param_values = {name: values for name, values in zip(salib_problem["names"], salib_param_values[i])}
+    if include_background:
+        for bact in background_activities:
+            bact_str = activity_string(bact)
+            salib_problem["names"].append(bact_str)
+            salib_problem["num_vars"] += 1
+            salib_problem["bounds"].append(None)
+            salib_problem["dists"].append(None)
 
-            df_scores_i, df_parameters_i = calculate_scores(activities,
-                                                      impact_categories,
-                                                      param_values)
+    param_types = []
+    for n in salib_problem["names"]:
+        if n[0] == "(":
+            param_types.append("background")
+        else:
+            param_types.append("foreground")
 
-            df_scores[f"value_{i}"] = df_scores_i["value_0"]
-            df_parameters[f"value_{i}"] = df_parameters_i["value_0"]
+    ua_results = []
+    value_cols = [f"value_{i}" for i in range(n_iterations)]
+    for act in activities:
+        act_str = activity_string(act)
+        for ic in impact_categories:
+            ic_str = str(ic)
 
-            elapsed = time.time() - start_time
-            remaining = elapsed / (i+1) * (n_iterations - i + 1)
-            if progress_bar:
-                _print_uncertainty_apportioning_progress(i, n_iterations, elapsed, remaining)
+            criteria = (df_scores["activity"] == act_str) & (df_scores["impact_category"] == ic_str)
+            salib_Y = np.array(df_scores[criteria][value_cols]).flatten()
 
-        ua_results = []
-        value_cols = [f"value_{i}" for i in range(n_iterations)]
-        for act in df_scores["activity"].unique():
-            for ic in df_scores["impact_category"].unique():
-                criteria = (df_scores["activity"] == act) & (df_scores["impact_category"] == ic)
-                salib_Y = np.array(df_scores[criteria][value_cols]).flatten()
-                if isinstance(method, SobolSaltelliMethod):
-                    salib_Si = salib_analyze_sobol.analyze(salib_problem, salib_Y,
-                                                           calc_second_order=method.calc_second_order,
-                                                           num_resamples=method.num_resamples,
-                                                           conf_level=method.conf_level,
-                                                           print_to_console=method.print_to_console,
-                                                           parallel=method.parallel,
-                                                           n_processors=method.n_processors,
-                                                           keep_resamples=method.keep_resamples,
-                                                           seed=method.seed,)
-                    S2_symmetric = np.nansum(np.dstack([salib_Si["S2"].T, salib_Si["S2"]]), 2)
-                    S2_conf_symmetric = np.nansum(np.dstack([salib_Si["S2_conf"].T, salib_Si["S2_conf"]]), 2)
-                    df = pd.DataFrame(data=np.concatenate([np.stack([salib_Si["S1"], salib_Si["S1_conf"], salib_Si["ST"],
-                                                                      salib_Si["ST_conf"]], axis=-1), S2_symmetric, S2_conf_symmetric], axis=1),
-                                                       columns=["S1", "S1_conf", "ST", "ST_conf"] +
-                                                               [f"S2_{name}" for name in salib_Si.problem["names"]] +
-                                                               [f"S2_{name}_conf" for name in salib_Si.problem["names"]])
-                    df["S1_rank"] = df["S1"].rank(ascending=False)
-                    df["ST_rank"] = df["ST"].rank(ascending=False)
-                    for name in salib_Si.problem["names"]:
-                        df[f"S2_{name}_rank"] = df[f"S2_{name}"].rank(ascending=False)
-                    df["parameter"] = salib_Si.problem["names"]
-                elif isinstance(method, FASTMethod):
-                    salib_Si = salib_analyze_fast.analyze(salib_problem, salib_Y,
-                                                          M=method.M,
-                                                          num_resamples=method.num_resamples,
-                                                          conf_level=method.conf_level,
-                                                          print_to_console=method.print_to_console,
-                                                          seed=method.seed,)
-                    df = pd.DataFrame(data=np.stack([salib_Si["S1"], salib_Si["S1_conf"], salib_Si["ST"],
-                                                                      salib_Si["ST_conf"]], axis=-1),
-                                                       columns=["S1", "S1_conf", "ST", "ST_conf"])
-                    df["S1_rank"] = df["S1"].rank(ascending=False)
-                    df["ST_rank"] = df["ST"].rank(ascending=False)
-                    df["parameter"] = salib_Si["names"]
-                elif isinstance(method, RBDFASTMethod):
-                    salib_Si = salib_analyze_rbd_fast.analyze(salib_problem,
-                                                              salib_param_values,
-                                                              salib_Y,
-                                                          M=method.M,
-                                                          print_to_console=method.print_to_console,
-                                                          seed=method.seed,)
-                    df = pd.DataFrame(
-                        data=np.stack([salib_Si["S1"], salib_Si["S1_conf"]], axis=-1),
-                        columns=["S1", "S1_conf"])
-                    df["S1_rank"] = df["S1"].rank(ascending=False)
-                    df["parameter"] = salib_Si["names"]
-                elif isinstance(method, PAWNMethod):
-                    salib_Si = salib_analyze_pawn.analyze(salib_problem,
-                                                              salib_param_values,
-                                                              salib_Y,
-                                                          S=method.S,
-                                                          print_to_console=method.print_to_console,
-                                                          seed=method.seed,)
-                    df = pd.DataFrame(
-                        data=np.stack([salib_Si["minimum"], salib_Si["mean"], salib_Si["median"],
-                                       salib_Si["maximum"], salib_Si["CV"], salib_Si["stdev"]], axis=-1),
-                        columns=["minimum", "mean", "median", "maximum", "CV", "stdev"])
-                    df["median_rank"] = df["median"].rank(ascending=False)
-                    df["maximum_rank"] = df["maximum"].rank(ascending=False)
-                    df["parameter"] = salib_Si["names"]
-                elif isinstance(method, DeltaMomentIndependentMethod):
-                    salib_Si = salib_analyze_delta.analyze(salib_problem,
-                                                          salib_param_values,
+            salib_param_values_extended = salib_param_values
+            if include_background:
+                for bact in background_activities:
+                    bact_str = activity_string(bact)
+                    criteria = (df_scores["activity"] == bact_str) & (df_scores["impact_category"] == ic_str)
+
+                    salib_param_values_extended = np.hstack([salib_param_values_extended,
+                                                    np.swapaxes(np.array(df_scores[criteria][value_cols]), 0, 1)])
+
+
+            if isinstance(method, SobolSaltelliMethod):
+                salib_Si = salib_analyze_sobol.analyze(salib_problem, salib_Y,
+                                                       calc_second_order=method.calc_second_order,
+                                                       num_resamples=method.num_resamples,
+                                                       conf_level=method.conf_level,
+                                                       print_to_console=method.print_to_console,
+                                                       parallel=method.parallel,
+                                                       n_processors=method.n_processors,
+                                                       keep_resamples=method.keep_resamples,
+                                                       seed=method.seed, )
+                S2_symmetric = np.nansum(np.dstack([salib_Si["S2"].T, salib_Si["S2"]]), 2)
+                S2_conf_symmetric = np.nansum(np.dstack([salib_Si["S2_conf"].T, salib_Si["S2_conf"]]), 2)
+                df = pd.DataFrame(data=np.concatenate([np.stack([salib_Si["S1"], salib_Si["S1_conf"], salib_Si["ST"],
+                                                                 salib_Si["ST_conf"]], axis=-1), S2_symmetric,
+                                                       S2_conf_symmetric], axis=1),
+                                  columns=["S1", "S1_conf", "ST", "ST_conf"] +
+                                          [f"S2_{name}" for name in salib_Si.problem["names"]] +
+                                          [f"S2_{name}_conf" for name in salib_Si.problem["names"]])
+                df["S1_rank"] = df["S1"].rank(ascending=False)
+                df["ST_rank"] = df["ST"].rank(ascending=False)
+                for name in salib_Si.problem["names"]:
+                    df[f"S2_{name}_rank"] = df[f"S2_{name}"].rank(ascending=False)
+            elif isinstance(method, FASTMethod):
+                salib_Si = salib_analyze_fast.analyze(salib_problem, salib_Y,
+                                                      M=method.M,
+                                                      num_resamples=method.num_resamples,
+                                                      conf_level=method.conf_level,
+                                                      print_to_console=method.print_to_console,
+                                                      seed=method.seed, )
+                df = pd.DataFrame(data=np.stack([salib_Si["S1"], salib_Si["S1_conf"], salib_Si["ST"],
+                                                 salib_Si["ST_conf"]], axis=-1),
+                                  columns=["S1", "S1_conf", "ST", "ST_conf"])
+                df["S1_rank"] = df["S1"].rank(ascending=False)
+                df["ST_rank"] = df["ST"].rank(ascending=False)
+            elif isinstance(method, RBDFASTMethod):
+                salib_Si = salib_analyze_rbd_fast.analyze(salib_problem,
+                                                          salib_param_values_extended,
                                                           salib_Y,
+                                                          M=method.M,
                                                           print_to_console=method.print_to_console,
                                                           seed=method.seed, )
-                    df = pd.DataFrame(
-                        data=np.stack([salib_Si["delta"], salib_Si["delta_conf"], salib_Si["S1"],
-                                       salib_Si["S1_conf"]], axis=-1),
-                        columns=["delta", "delta_conf", "S1", "S1_conf"])
-                    df["delta_rank"] = df["delta"].rank(ascending=False)
-                    df["S1_rank"] = df["S1"].rank(ascending=False)
-                    df["parameter"] = salib_Si["names"]
-                df["activity"] = act
-                df["impact_category"] = str(ic)
-                ua_results.append(df)
-
-        ua_df = pd.concat(ua_results, ignore_index=True)
-        return ua_df, df_scores, df_parameters
-    elif isinstance(method, SobolLi2016Method):
-        # TODO: Integrate the Monte-Carlo-based estimations more cleanly.
-        df_scores, df_scores_background, df_parameters = run_monte_carlo(activities,
-                                                                impact_categories,
-                                                                n_iterations=method.N,
-                                                                progress_bar=progress_bar,)
-
-        criteria = df_parameters["parameter"].isin([p.name for p in project_params])
-        df_parameters = df_parameters[criteria]
-
-        #activities = list(df_scores.keys())
-        #background_activities = list(df_scores_background.keys())
-        #impact_categories = list(df_scores[activities[0]].keys())
-
-        ua_results = []
-        value_cols = [f"value_{i}" for i in range(method.N)]
-
-        for act in df_scores["activity"].unique():
-            for ic in df_scores["impact_category"].unique():
+                df = pd.DataFrame(
+                    data=np.stack([salib_Si["S1"], salib_Si["S1_conf"]], axis=-1),
+                    columns=["S1", "S1_conf"])
+                df["S1_rank"] = df["S1"].rank(ascending=False)
+            elif isinstance(method, PAWNMethod):
+                salib_Si = salib_analyze_pawn.analyze(salib_problem,
+                                                      salib_param_values_extended,
+                                                      salib_Y,
+                                                      S=method.S,
+                                                      print_to_console=method.print_to_console,
+                                                      seed=method.seed, )
+                df = pd.DataFrame(
+                    data=np.stack([salib_Si["minimum"], salib_Si["mean"], salib_Si["median"],
+                                   salib_Si["maximum"], salib_Si["CV"], salib_Si["stdev"]], axis=-1),
+                    columns=["minimum", "mean", "median", "maximum", "CV", "stdev"])
+                df["median_rank"] = df["median"].rank(ascending=False)
+                df["maximum_rank"] = df["maximum"].rank(ascending=False)
+            elif isinstance(method, DeltaMomentIndependentMethod):
+                salib_Si = salib_analyze_delta.analyze(salib_problem,
+                                                       salib_param_values_extended,
+                                                       salib_Y,
+                                                       print_to_console=method.print_to_console,
+                                                       seed=method.seed, )
+                df = pd.DataFrame(
+                    data=np.stack([salib_Si["delta"], salib_Si["delta_conf"], salib_Si["S1"],
+                                   salib_Si["S1_conf"]], axis=-1),
+                    columns=["delta", "delta_conf", "S1", "S1_conf"])
+                df["delta_rank"] = df["delta"].rank(ascending=False)
+                df["S1_rank"] = df["S1"].rank(ascending=False)
+            elif isinstance(method, SobolLi2016Method):
                 data = []
-                index = []
-                criteria = (df_scores["activity"] == act) & (df_scores["impact_category"] == ic)
-                y = np.array(df_scores[criteria][value_cols]).flatten()
-                for param in df_parameters["parameter"].unique():
-
-                    if method.ignore_dependent and df_parameters[df_parameters["parameter"] == param]["type"].values[0] == "dependent":
-                        continue
-
-                    x = df_parameters[df_parameters["parameter"] == param][[f"value_{i}" for i in range(method.N)]].values.flatten()
+                y = salib_Y
+                for x in np.swapaxes(salib_param_values_extended, 0, 1):
                     S1_alg_1 = _main_effect_li_2016_alg_1(np.array(x), np.array(y), method.n_bins)
                     S1_alg_2 = _main_effect_li_2016_alg_2(np.array(x), np.array(y), method.n_bins)
-                    index.append(param)
                     data.append({"S1_alg_1": S1_alg_1,
-                                   "S1_alg_2": S1_alg_2,})
-                for bact in df_scores_background["activity"].unique():
-                    criteria = (df_scores_background["activity"] == bact) & (df_scores_background["impact_category"] == ic)
-                    x = np.array(df_scores_background[criteria][value_cols]).flatten()
-                    S1_alg_1 = _main_effect_li_2016_alg_1(np.array(x), np.array(y), method.n_bins)
-                    S1_alg_2 = _main_effect_li_2016_alg_2(np.array(x), np.array(y), method.n_bins)
-                    index.append(str(bact))
-                    data.append({"S1_alg_1": S1_alg_1,
-                                   "S1_alg_2": S1_alg_2,})
+                                 "S1_alg_2": S1_alg_2})
                 df = pd.DataFrame(data)
                 df["S1_alg_1_rank"] = df["S1_alg_1"].rank(ascending=False)
                 df["S1_alg_2_rank"] = df["S1_alg_2"].rank(ascending=False)
-                df["activity"] = act
-                df["impact_category"] = str(ic)
-                df["parameter"] = index
-                ua_results.append(df)
+            df["parameter"] = salib_problem["names"]
+            df["type"] = param_types
+            df["activity"] = act_str
+            df["impact_category"] = ic_str
+            ua_results.append(df)
 
-        df_scores_combined = pd.concat([df_scores, df_scores_background])
-        ua_df = pd.concat(ua_results, ignore_index=True)
-        return ua_df, df_scores_combined, df_parameters
-    else:
-        raise ValueError("Unsupported method. Should be one of SobolSaltelliMethod, SobolLi2016Method, FASTMethod.")
+    ua_df = pd.concat(ua_results, ignore_index=True)
+    return ua_df, df_scores, df_parameters
+
+def _get_salib_problem(project_parameters: List[ProjectParameter]) -> Dict:
+    salib_problem = {
+        'names': [],
+        'num_vars': 0,
+        'bounds': [],
+        'dists': []
+    }
+
+    for p in project_parameters:
+        # TODO: Verify proper conversion.
+        p_uncertainty = p.data["uncertainty"]
+        if p_uncertainty["uncertainty_type"] == stats_arrays.UniformUncertainty.id:
+            salib_problem['dists'].append("unif")
+            salib_problem['bounds'].append([p_uncertainty["minimum"][0], p_uncertainty["maximum"][0]])
+        elif p_uncertainty["uncertainty_type"] == stats_arrays.TriangularUncertainty.id:
+            salib_problem['dists'].append("triang")
+            peak_percent = ((p_uncertainty["loc"][0] - p_uncertainty["minimum"][0]) /
+                            (p_uncertainty["maximum"][0] - p_uncertainty["minimum"][0]))
+            salib_problem['bounds'].append([p_uncertainty["minimum"][0], p_uncertainty["maximum"][0], peak_percent])
+        elif p_uncertainty["uncertainty_type"] == stats_arrays.NormalUncertainty.id:
+            if not np.isnan(p_uncertainty["minimum"]) and not np.isnan(p_uncertainty["maximum"]):
+                salib_problem['dists'].append("truncnorm")
+                salib_problem['bounds'].append([p_uncertainty["minimum"][0], p_uncertainty["maximum"][0],
+                                                p_uncertainty["loc"][0], p_uncertainty["scale"][0]])
+            else:
+                salib_problem['dists'].append("norm")
+                salib_problem['bounds'].append([p_uncertainty["loc"][0], p_uncertainty["scale"][0]])
+        elif p_uncertainty["uncertainty_type"] == stats_arrays.LognormalUncertainty.id:
+            # TODO: Check that these are the proper df_parameters
+            salib_problem['dists'].append("lognorm")
+            salib_problem['bounds'].append([p_uncertainty["loc"][0], p_uncertainty["scale"][0]])
+        elif p_uncertainty["uncertainty_type"] == stats_arrays.WeibullUncertainty.id:
+            salib_problem['dists'].append("weibull")
+            salib_problem['bounds'].append([p_uncertainty["shape"][0], p_uncertainty["scale"][0],
+                                            p_uncertainty["loc"][0]])
+        else:
+            warnings.warn(f"Parameter {p.name} ignored because it uses an unsupported uncertainty type.")
+            continue
+        salib_problem['names'].append(p.name)
+        salib_problem["num_vars"] += 1
+
+    return salib_problem
+
+def _get_background_activities(activities: List[bd.backends.proxies.Activity],
+                               foreground_db_name: str) -> List[bd.backends.proxies.Activity]:
+    background_activities = []
+
+    def get_background_activities(act: bd.backends.proxies.Activity, foreground_db_name: str) -> List[
+        bd.backends.proxies.Activity]:
+        background_activities = []
+        for exc in act.technosphere():
+            if exc.input["database"] == foreground_db_name:
+                background_activities += get_background_activities(exc.input, foreground_db_name)
+            else:
+                background_activities.append(exc.input)
+        return background_activities
+
+    for act in activities:
+        background_activities += get_background_activities(act, foreground_db_name)
+    background_activities = list(set(background_activities))
+    return background_activities
 
 def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
                                impact_categories: List[ImpactCategoryTuple],
@@ -350,6 +390,23 @@ def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
 
     sensitivity = (score_perturbed - score_nominal) / (parameter_perturbed - parameter_nominal)
     elasticity = (parameter_nominal / score_nominal) * sensitivity
+
+    Parameters
+    ----------
+    activities : List[bd.backends.proxies.Activity]
+        List of activities.
+    impact_categories : List[ImpactCategoryTuple]
+        List of impact categories.
+    parameters : List[str]
+        List of parameters to conduct sensitivity analysis on.
+    perturbation_size: float = 0.01
+        Size of the perturbation as a proportion of the nominal value.
+        parameter_perturbed = (1 + perturbation_size) * parameter_nominal
+
+    Returns
+    -------
+    results: Dict
+        TODO: Finish doc here.
     """
     # First compute nominal scores
     df_scores_nominal, df_parameters_nominal = calculate_scores(activities,
