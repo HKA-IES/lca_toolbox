@@ -20,6 +20,7 @@ from SALib.analyze import fast as salib_analyze_fast
 from SALib.analyze import rbd_fast as salib_analyze_rbd_fast
 from SALib.analyze import pawn as salib_analyze_pawn
 from SALib.analyze import delta as salib_analyze_delta
+import scipy.stats as sp_stats
 
 # import your own module
 from .compute import calculate_scores
@@ -95,8 +96,16 @@ class DeltaMomentIndependentMethod:
     seed: int | np.random.Generator | None = None
     print_to_console: bool = False
 
+@dataclass
+class SpearmanRankCorrelationMethod:
+    """
+    Spearman Rank Correlation
+    """
+    N: int
+    seed: int | np.random.Generator | None = None
+
 Method = Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod,
-DeltaMomentIndependentMethod]
+DeltaMomentIndependentMethod, SpearmanRankCorrelationMethod]
 
 # TODO: Add XGBoost feature importance, SHAP values?
 
@@ -153,7 +162,8 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
     elif (isinstance(method, RBDFASTMethod) or
           isinstance(method, PAWNMethod) or
           isinstance(method, DeltaMomentIndependentMethod) or
-          isinstance(method, SobolLi2016Method)):
+          isinstance(method, SobolLi2016Method) or
+          isinstance(method, SpearmanRankCorrelationMethod)):
         salib_param_values = salib_sample_latin.sample(salib_problem,
                                                        N=method.N,
                                                        seed=method.seed, )
@@ -310,6 +320,13 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                 df = pd.DataFrame(data)
                 df["S1_alg_1_rank"] = df["S1_alg_1"].rank(ascending=False)
                 df["S1_alg_2_rank"] = df["S1_alg_2"].rank(ascending=False)
+            elif isinstance(method, SpearmanRankCorrelationMethod):
+                data = []
+                for x in np.swapaxes(salib_param_values_extended, 0, 1):
+                    spearman = sp_stats.spearmanr(np.array(x), salib_Y)
+                    data.append({"spearman": spearman.correlation})
+                df = pd.DataFrame(data)
+                df["spearman_rank"] = df["spearman"].rank(ascending=True)
             df["parameter"] = salib_problem["names"]
             df["type"] = param_types
             df["activity"] = act_str
