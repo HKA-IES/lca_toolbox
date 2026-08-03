@@ -21,6 +21,7 @@ from SALib.analyze import rbd_fast as salib_analyze_rbd_fast
 from SALib.analyze import pawn as salib_analyze_pawn
 from SALib.analyze import delta as salib_analyze_delta
 import scipy.stats as sp_stats
+from xgboost import XGBRegressor
 
 # import your own module
 from .compute import calculate_scores
@@ -104,8 +105,16 @@ class SpearmanRankCorrelationMethod:
     N: int
     seed: int | np.random.Generator | None = None
 
+@dataclass
+class XGBFeatureImportanceMethod:
+    """
+    XGBoost Feature Importance
+    """
+    N: int
+    seed: int | np.random.Generator | None = None
+
 Method = Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod,
-DeltaMomentIndependentMethod, SpearmanRankCorrelationMethod]
+DeltaMomentIndependentMethod, SpearmanRankCorrelationMethod, XGBFeatureImportanceMethod]
 
 # TODO: Add XGBoost feature importance, SHAP values?
 
@@ -163,7 +172,8 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
           isinstance(method, PAWNMethod) or
           isinstance(method, DeltaMomentIndependentMethod) or
           isinstance(method, SobolLi2016Method) or
-          isinstance(method, SpearmanRankCorrelationMethod)):
+          isinstance(method, SpearmanRankCorrelationMethod) or
+          isinstance(method, XGBFeatureImportanceMethod)):
         salib_param_values = salib_sample_latin.sample(salib_problem,
                                                        N=method.N,
                                                        seed=method.seed, )
@@ -327,6 +337,13 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                     data.append({"spearman": spearman.correlation})
                 df = pd.DataFrame(data)
                 df["spearman_rank"] = df["spearman"].rank(ascending=True)
+            elif isinstance(method, XGBFeatureImportanceMethod):
+                xgb = XGBRegressor()
+                xgb.fit(salib_param_values_extended, salib_Y)
+                df = pd.DataFrame(
+                    data=xgb.feature_importances_,
+                    columns=["feature_importance"])
+                df["feature_importance_rank"] = df["feature_importance"].rank(ascending=True)
             df["parameter"] = salib_problem["names"]
             df["type"] = param_types
             df["activity"] = act_str
