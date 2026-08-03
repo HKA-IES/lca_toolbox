@@ -344,7 +344,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                     spearman = sp_stats.spearmanr(np.array(x), salib_Y)
                     data.append({"spearman": spearman.correlation})
                 df = pd.DataFrame(data)
-                df["spearman_rank"] = df["spearman"].rank(ascending=True)
+                df["spearman_rank"] = df["spearman"].rank(ascending=False)
             elif isinstance(method, GradientBoostingMethod):
                 xgb = XGBRegressor(n_estimators=method.n_estimators,
                                    max_depth=method.max_depth,
@@ -365,8 +365,8 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                     data=xgb.feature_importances_,
                     columns=["feature_importance"])
                 df["mean_shap"] = mean_shap_values
-                df["feature_importance_rank"] = df["feature_importance"].rank(ascending=True)
-                df["mean_shap_rank"] = df["mean_shap"].rank(ascending=True)
+                df["feature_importance_rank"] = df["feature_importance"].rank(ascending=False)
+                df["mean_shap_rank"] = df["mean_shap"].rank(ascending=False)
             df["parameter"] = salib_problem["names"]
             df["type"] = param_types
             df["activity"] = act_str
