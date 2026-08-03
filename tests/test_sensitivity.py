@@ -10,7 +10,7 @@ import bw2calc as bc
 # import your own module
 from lcatoolbox import (uncertainty_apportioning, local_sensitivity_analysis, activity_string, SobolSaltelliMethod,
                         SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod, DeltaMomentIndependentMethod,
-                        SpearmanRankCorrelationMethod, XGBFeatureImportanceMethod)
+                        SpearmanRankCorrelationMethod, GradientBoostingMethod)
 from setup_bw_project import setup_brightway, imported_activities
 
 class TestSensitivity:
@@ -178,7 +178,7 @@ class TestSensitivity:
         assert set(df_ua.columns) == expected_cols
         assert set(df_ua["type"].unique()) == {"foreground", "background"}
 
-    def test_uncertainty_apportioning_xgb_feature_importance(self, imported_activities):
+    def test_uncertainty_apportioning_gradient_boosting(self, imported_activities):
         activities = imported_activities
         impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
                              ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
@@ -190,14 +190,14 @@ class TestSensitivity:
         _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
 
         df_ua, scores, parameters = uncertainty_apportioning(activities,
-                                            impact_categories,
-                                            XGBFeatureImportanceMethod(N=25))
+                                                             impact_categories,
+                                                             GradientBoostingMethod(N=25))
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
         assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 7)
         expected_cols = {"parameter", "type", "activity", "impact_category", "feature_importance",
-                         "feature_importance_rank"}
+                         "feature_importance_rank", "mean_shap", "mean_shap_rank"}
         assert set(df_ua.columns) == expected_cols
         assert set(df_ua["type"].unique()) == {"foreground", "background"}
 

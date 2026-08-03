@@ -22,6 +22,7 @@ from SALib.analyze import pawn as salib_analyze_pawn
 from SALib.analyze import delta as salib_analyze_delta
 import scipy.stats as sp_stats
 from xgboost import XGBRegressor
+import shap
 
 # import your own module
 from .compute import calculate_scores
@@ -106,17 +107,24 @@ class SpearmanRankCorrelationMethod:
     seed: int | np.random.Generator | None = None
 
 @dataclass
-class XGBFeatureImportanceMethod:
+class GradientBoostingMethod:
     """
-    XGBoost Feature Importance
+    Gradient Boosting Method
     """
     N: int
     seed: int | np.random.Generator | None = None
+    n_estimators: int | None = None
+    max_depth: int | None = None
+    max_leaves: int | None = None
+    learning_rate: float | None = None
+    gamma: float | None = None
+    min_child_weight: float | None = None
+    max_delta_step: float | None = None
+    reg_alpha: float | None = None
+    reg_lambda: float | None = None
 
 Method = Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod,
-DeltaMomentIndependentMethod, SpearmanRankCorrelationMethod, XGBFeatureImportanceMethod]
-
-# TODO: Add XGBoost feature importance, SHAP values?
+DeltaMomentIndependentMethod, SpearmanRankCorrelationMethod, GradientBoostingMethod]
 
 def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                              impact_categories: List[ImpactCategoryTuple],
@@ -173,7 +181,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
           isinstance(method, DeltaMomentIndependentMethod) or
           isinstance(method, SobolLi2016Method) or
           isinstance(method, SpearmanRankCorrelationMethod) or
-          isinstance(method, XGBFeatureImportanceMethod)):
+          isinstance(method, GradientBoostingMethod)):
         salib_param_values = salib_sample_latin.sample(salib_problem,
                                                        N=method.N,
                                                        seed=method.seed, )
@@ -337,13 +345,28 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                     data.append({"spearman": spearman.correlation})
                 df = pd.DataFrame(data)
                 df["spearman_rank"] = df["spearman"].rank(ascending=True)
-            elif isinstance(method, XGBFeatureImportanceMethod):
-                xgb = XGBRegressor()
+            elif isinstance(method, GradientBoostingMethod):
+                xgb = XGBRegressor(n_estimators=method.n_estimators,
+                                   max_depth=method.max_depth,
+                                   max_leaves=method.max_leaves,
+                                   learning_rate=method.learning_rate,
+                                   gamma=method.gamma,
+                                   min_child_weight=method.min_child_weight,
+                                   max_delta_step=method.max_delta_step,
+                                   reg_alpha=method.reg_alpha,
+                                   reg_lambda=method.reg_lambda,
+                                   random_state=method.seed,)
                 xgb.fit(salib_param_values_extended, salib_Y)
+                explainer = shap.TreeExplainer(xgb)
+                explanation = explainer(salib_param_values_extended)
+                shap_values = explanation.values
+                mean_shap_values = np.mean(shap_values, axis=0)
                 df = pd.DataFrame(
                     data=xgb.feature_importances_,
                     columns=["feature_importance"])
+                df["mean_shap"] = mean_shap_values
                 df["feature_importance_rank"] = df["feature_importance"].rank(ascending=True)
+                df["mean_shap_rank"] = df["mean_shap"].rank(ascending=True)
             df["parameter"] = salib_problem["names"]
             df["type"] = param_types
             df["activity"] = act_str
