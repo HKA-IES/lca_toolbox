@@ -360,7 +360,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                 explainer = shap.TreeExplainer(xgb)
                 explanation = explainer(salib_param_values_extended)
                 shap_values = explanation.values
-                mean_shap_values = np.mean(shap_values, axis=0)
+                mean_shap_values = np.mean(np.abs(shap_values), axis=0)
                 df = pd.DataFrame(
                     data=xgb.feature_importances_,
                     columns=["feature_importance"])
