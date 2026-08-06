@@ -346,6 +346,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                 df = pd.DataFrame(data)
                 df["spearman_rank"] = df["spearman"].rank(ascending=False)
             elif isinstance(method, GradientBoostingMethod):
+                salib_Y_standardized = (salib_Y - salib_Y.mean()) / salib_Y.std()
                 xgb = XGBRegressor(n_estimators=method.n_estimators,
                                    max_depth=method.max_depth,
                                    max_leaves=method.max_leaves,
@@ -356,7 +357,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                                    reg_alpha=method.reg_alpha,
                                    reg_lambda=method.reg_lambda,
                                    random_state=method.seed,)
-                xgb.fit(salib_param_values_extended, salib_Y)
+                xgb.fit(salib_param_values_extended, salib_Y_standardized)
                 explainer = shap.TreeExplainer(xgb)
                 explanation = explainer(salib_param_values_extended)
                 shap_values = explanation.values
