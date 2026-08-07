@@ -365,7 +365,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                 explanation = explainer(salib_param_values_extended)
                 shap_values = explanation.values
                 mean_shap_values = np.mean(np.abs(shap_values), axis=0)
-                mean_shap_values_norm = softmax(mean_shap_values)
+                mean_shap_values_norm = mean_shap_values / mean_shap_values.sum()
                 df = pd.DataFrame(
                     data=xgb.feature_importances_,
                     columns=["feature_importance"])
