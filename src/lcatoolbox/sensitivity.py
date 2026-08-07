@@ -201,7 +201,8 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
     param_values = {name: values for name, values in zip(salib_problem["names"], salib_param_values[0])}
     df_scores, df_parameters = calculate_scores(activities+background_activities,
                                                 impact_categories,
-                                                param_values)
+                                                param_values,
+                                                use_exchange_distributions=True)
     elapsed = time.time() - start_time
     remaining = elapsed / 1 * n_iterations
     if progress_bar:
@@ -212,7 +213,8 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
 
         df_scores_i, df_parameters_i = calculate_scores(activities+background_activities,
                                                         impact_categories,
-                                                        param_values)
+                                                        param_values,
+                                                        use_exchange_distributions=True)
 
         df_scores[f"value_{i}"] = df_scores_i["value_0"]
         df_parameters[f"value_{i}"] = df_parameters_i["value_0"]
