@@ -16,7 +16,11 @@ def activity_string(activity: bd.backends.proxies.Activity) -> str:
         product = activity["reference product"]
     except KeyError:
         product = None
-    act_tuple = (activity["name"], product, activity["location"], activity["database"])
+    try:
+        location = activity["location"]
+    except KeyError:
+        location = None
+    act_tuple = (activity["name"], product, location, activity["database"])
     return str(act_tuple)
 
 def get_exchange(id_: int) -> bd.backends.Exchange:
