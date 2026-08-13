@@ -9,6 +9,7 @@ from copy import deepcopy
 # import third-party modules
 import bw2data as bd
 from bw2data.parameters import ActivityParameter, ProjectParameter
+from bw2data.errors import MultipleResults, UnknownObject
 import pandas as pd
 import stats_arrays
 import numpy as np
@@ -135,7 +136,13 @@ def import_foreground(file_path: str,
             if row["Categories"] != "":
                 activity_search_args["categories"] = ast.literal_eval(row["Categories"])
 
-            exc_act = bd.get_activity(**activity_search_args)
+            try:
+                exc_act = bd.get_activity(**activity_search_args)
+            except MultipleResults:
+                raise RuntimeError(f"Multiple activities found for criterias {activity_search_args}.")
+            except UnknownObject:
+                raise RuntimeError(f"No activity found for criterias {activity_search_args}.")
+
 
             if row["Type"] == "technosphere":
                 exc_type = bd.labels.consumption_edge_default
