@@ -345,7 +345,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                 data = []
                 for x in np.swapaxes(salib_param_values_extended, 0, 1):
                     spearman = sp_stats.spearmanr(np.array(x), salib_Y)
-                    data.append({"spearman": spearman.correlation})
+                    data.append({"spearman": spearman.correlation**2})
                 df = pd.DataFrame(data)
                 df["spearman_rank"] = df["spearman"].rank(ascending=False)
             elif isinstance(method, GradientBoostingMethod):
