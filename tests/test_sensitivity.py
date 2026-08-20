@@ -32,7 +32,7 @@ class TestSensitivity:
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 23
         expected_cols = {"parameter", "type", "activity", "impact_category", "S1", "S1_conf", "S1_rank", "ST", "ST_conf",
                          "ST_rank"}
         expected_cols |= {f"S2_{param}" for param in df_ua["parameter"]}
@@ -58,7 +58,7 @@ class TestSensitivity:
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 14
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 23
         expected_cols = {"parameter", "type", "activity", "impact_category", "S1", "S1_conf", "S1_rank", "ST", "ST_conf",
                          "ST_rank"}
         assert set(df_ua.columns) == expected_cols
@@ -82,7 +82,7 @@ class TestSensitivity:
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 7)
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "S1", "S1_conf", "S1_rank"}
         assert set(df_ua.columns) == expected_cols
         assert set(df_ua["type"].unique()) == {"foreground", "background"}
@@ -104,7 +104,7 @@ class TestSensitivity:
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 7)
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "minimum", "mean", "median", "maximum", "CV",
                          "stdev", "median_rank", "maximum_rank"}
         assert set(df_ua.columns) == expected_cols
@@ -127,7 +127,7 @@ class TestSensitivity:
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 7)
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "delta", "delta_conf",
                          "delta_rank", "S1", "S1_conf", "S1_rank"}
         assert set(df_ua.columns) == expected_cols
@@ -151,7 +151,7 @@ class TestSensitivity:
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 7)
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "S1_alg_1", "S1_alg_2", "S1_alg_1_rank", "S1_alg_2_rank"}
         assert set(df_ua.columns) == expected_cols
         assert set(df_ua["type"].unique()) == {"foreground", "background"}
@@ -173,7 +173,7 @@ class TestSensitivity:
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 7)
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "spearman", "spearman_rank"}
         assert set(df_ua.columns) == expected_cols
         assert set(df_ua["type"].unique()) == {"foreground", "background"}
@@ -195,7 +195,7 @@ class TestSensitivity:
 
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * (14 + 7)
+        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "feature_importance",
                          "feature_importance_rank", "mean_shap_normalized", "mean_shap_normalized_rank"}
         assert set(df_ua.columns) == expected_cols

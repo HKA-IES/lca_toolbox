@@ -159,7 +159,10 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
         Parameters for each iteration of the process. Same structure as the outputs of .calculate_scores(),
         .run_monte_carlo().
     """
-    project_params = [p for p in ProjectParameter.select() if p.formula is None]
+    project_params = [p for p in ProjectParameter.select()
+                      if p.formula is None
+                      and p.dict["uncertainty"]["uncertainty_type"] not in [stats_arrays.NoUncertainty.id,
+                                                                    stats_arrays.UnknownUncertaintyType]]
 
     salib_problem = _get_salib_problem(project_params)
 
