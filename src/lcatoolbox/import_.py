@@ -34,6 +34,7 @@ UNCERTAINTY_TYPES_MAP = {"Undefined": stats_arrays.UndefinedUncertainty.id,
                          "Generalized Extreme Value": stats_arrays.GeneralizedExtremeValueUncertainty.id,
                          "Student's T": stats_arrays.StudentsTUncertainty.id,}
 
+# TODO: create function to export activity to a spreadsheet (!!!!)
 
 def import_foreground(file_path: str,
                       data_quality_system: str,
@@ -167,6 +168,7 @@ def import_foreground(file_path: str,
                              formula=formula,
                              data_quality_tuple=tuple(int(val) for val in row["Data Quality"].strip("()").split(";")),
                              data_quality_system=data_quality_system,
+                             activity_fit_tuple=tuple(int(val) for val in row["Activity Fit"].strip("()").split(";"))
                              )
 
         bd.parameters.add_exchanges_to_group("group", act)
@@ -282,8 +284,8 @@ def apply_openlca_preprocessing_to_ecoinvent(ecoinvent_db_name: str):
                 exc["uncertainty type"] = stats_arrays.UndefinedUncertainty.id
                 exc.save()
 
-def _uncertainty_from_pedigree_matrix(pedigree: Tuple[int, int, int, int, int],
-                                      data_quality_system: str = "ecoinvent3") -> Dict[str, float]:
+def _uncertainty_from_pedigree(pedigree: Tuple[int, int, int, int, int],
+                               data_quality_system: str = "ecoinvent3") -> Dict[str, float]:
     """
     data_quality_system one of "ecoinvent3" (https://support.ecoinvent.org/uncertainties) or "ciroth2016" (factors from [1] with n.a. set to 25 like in openLCA).
 
@@ -338,7 +340,8 @@ def _create_exchange(parent_act: bd.backends.Activity,
                      group: str = None,
                      formula: str = None,
                      data_quality_tuple: Tuple[int, int, int, int, int] = (1, 1, 1, 1, 1),
-                     data_quality_system: str = "ecoinvent3"):
+                     data_quality_system: str = "ecoinvent3",
+                     activity_fit_tuple: Tuple[int, int, int, int, int] = (1, 1, 1, 1, 1)):
 
     if unit != provider_act["unit"]:
         raise ValueError(f"Mismatch between specified unit ({unit}) and exchange activity unit ({provider_act["unit"]}) for exchange"
@@ -358,7 +361,11 @@ def _create_exchange(parent_act: bd.backends.Activity,
     param_data_quality = {"name": f"exc_{new_exc.id}_data_quality",
                           "amount": 1,
                           "nominal": 1,
-                          "uncertainty": _uncertainty_from_pedigree_matrix(data_quality_tuple, data_quality_system), }
+                          "uncertainty": _uncertainty_from_pedigree(data_quality_tuple, data_quality_system), }
+    param_activity_fit = {"name": f"exc_{new_exc.id}_activity_fit",
+                          "amount": 1,
+                          "nominal": 1,
+                          "uncertainty": _uncertainty_from_pedigree(activity_fit_tuple, data_quality_system), }
 
     param_amount = {"name": f"exc_{new_exc.id}_amount", }
 
@@ -384,7 +391,8 @@ def _create_exchange(parent_act: bd.backends.Activity,
 
     # using deepcopy because the parameter dictionnaries are modified by .new_project_parameters()
     bd.parameters.new_project_parameters([deepcopy(param_data_quality),
+                                          deepcopy(param_activity_fit),
                                           deepcopy(param_amount)])
 
-    new_exc["formula"] = f"{param_amount["name"]}*{param_data_quality["name"]}"
+    new_exc["formula"] = f"{param_amount["name"]}*{param_data_quality["name"]}*{param_activity_fit["name"]}"
     new_exc.save()

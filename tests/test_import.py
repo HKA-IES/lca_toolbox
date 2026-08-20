@@ -66,27 +66,32 @@ class TestImport:
 
         assert fruit_salad_exchanges[1]["unit"] == "kilogram"
         assert fruit_salad_exchanges[1]["formula"] == (f"exc_{fruit_salad_exchanges[1].id}_amount*"
-                                                       f"exc_{fruit_salad_exchanges[1].id}_data_quality")
+                                                       f"exc_{fruit_salad_exchanges[1].id}_data_quality*"
+                                                       f"exc_{fruit_salad_exchanges[1].id}_activity_fit")
         assert fruit_salad_exchanges[1].input == apple
 
         assert fruit_salad_exchanges[2]["unit"] == "kilogram"
         assert fruit_salad_exchanges[2]["formula"] == (f"exc_{fruit_salad_exchanges[2].id}_amount*"
-                                                       f"exc_{fruit_salad_exchanges[2].id}_data_quality")
+                                                       f"exc_{fruit_salad_exchanges[2].id}_data_quality*"
+                                                       f"exc_{fruit_salad_exchanges[2].id}_activity_fit")
         assert fruit_salad_exchanges[2].input == kiwi
 
         assert fruit_salad_exchanges[3]["unit"] == "kilogram"
         assert fruit_salad_exchanges[3]["formula"] == (f"exc_{fruit_salad_exchanges[3].id}_amount*"
-                                                       f"exc_{fruit_salad_exchanges[3].id}_data_quality")
+                                                       f"exc_{fruit_salad_exchanges[3].id}_data_quality*"
+                                                       f"exc_{fruit_salad_exchanges[3].id}_activity_fit")
         assert fruit_salad_exchanges[3].input == anchovy
 
         assert fruit_salad_exchanges[4]["unit"] == "liter"
         assert fruit_salad_exchanges[4]["formula"] == (f"exc_{fruit_salad_exchanges[4].id}_amount*"
-                                                       f"exc_{fruit_salad_exchanges[4].id}_data_quality")
+                                                       f"exc_{fruit_salad_exchanges[4].id}_data_quality*"
+                                                       f"exc_{fruit_salad_exchanges[4].id}_activity_fit")
         assert fruit_salad_exchanges[4].input == juice
 
         assert fruit_salad_exchanges[5]["unit"] == "kilogram"
         assert fruit_salad_exchanges[5]["formula"] == (f"exc_{fruit_salad_exchanges[5].id}_amount*"
-                                                       f"exc_{fruit_salad_exchanges[5].id}_data_quality")
+                                                       f"exc_{fruit_salad_exchanges[5].id}_data_quality*"
+                                                       f"exc_{fruit_salad_exchanges[5].id}_activity_fit")
         assert fruit_salad_exchanges[5].input == biowaste
 
         assert juice_exchanges[0]["unit"] == "liter"
@@ -97,29 +102,37 @@ class TestImport:
 
         assert juice_exchanges[1]["unit"] == "unit"
         assert juice_exchanges[1]["formula"] == (f"exc_{juice_exchanges[1].id}_amount*"
-                                                 f"exc_{juice_exchanges[1].id}_data_quality")
+                                                 f"exc_{juice_exchanges[1].id}_data_quality*"
+                                                 f"exc_{juice_exchanges[1].id}_activity_fit")
         assert juice_exchanges[1].input == container
 
         assert juice_exchanges[2]["unit"] == "kilogram"
         assert juice_exchanges[2]["formula"] == (f"exc_{juice_exchanges[2].id}_amount*"
-                                                 f"exc_{juice_exchanges[2].id}_data_quality")
+                                                 f"exc_{juice_exchanges[2].id}_data_quality*"
+                                                 f"exc_{juice_exchanges[2].id}_activity_fit")
         assert juice_exchanges[2].input == orange
 
         assert juice_exchanges[3]["unit"] == "cubic meter"
         assert juice_exchanges[3]["formula"] == (f"exc_{juice_exchanges[3].id}_amount*"
-                                                 f"exc_{juice_exchanges[3].id}_data_quality")
+                                                 f"exc_{juice_exchanges[3].id}_data_quality*"
+                                                 f"exc_{juice_exchanges[3].id}_activity_fit")
         assert juice_exchanges[3].input == water
 
         assert juice_exchanges[4]["unit"] == "kilogram"
         assert juice_exchanges[4]["formula"] == (f"exc_{juice_exchanges[4].id}_amount*"
-                                                 f"exc_{juice_exchanges[4].id}_data_quality")
+                                                 f"exc_{juice_exchanges[4].id}_data_quality*"
+                                                 f"exc_{juice_exchanges[4].id}_activity_fit")
         assert juice_exchanges[4].input == oxygen
 
         # Parameters
         expected_parameters = []
-        uncertainty_dq = stats_arrays.UncertaintyBase.from_dicts(
+        uncertainty_data_quality = stats_arrays.UncertaintyBase.from_dicts(
             {"loc": 0.,
              "scale": 0.5198473117654913,
+             "uncertainty_type": stats_arrays.LognormalUncertainty.id})
+        uncertainty_activity_fit = stats_arrays.UncertaintyBase.from_dicts(
+            {"loc": 0.,
+             "scale": 0.2515888889210149,
              "uncertainty_type": stats_arrays.LognormalUncertainty.id})
 
         uncertainty_amount_apple = stats_arrays.UncertaintyBase.from_dicts(
@@ -128,7 +141,10 @@ class TestImport:
              "uncertainty_type": stats_arrays.UniformUncertainty.id})
         expected_parameters += [{"name": f"exc_{fruit_salad_exchanges[1].id}_data_quality",
                                  "amount": 1.,
-                                 "uncertainty": uncertainty_dq,},
+                                 "uncertainty": uncertainty_data_quality,},
+                                {"name": f"exc_{fruit_salad_exchanges[1].id}_activity_fit",
+                                 "amount": 1.,
+                                 "uncertainty": uncertainty_activity_fit, },
                                 {"name": f"exc_{fruit_salad_exchanges[1].id}_amount",
                                  "amount": 0.5,
                                  "uncertainty": uncertainty_amount_apple,}]
@@ -139,7 +155,10 @@ class TestImport:
              "uncertainty_type": stats_arrays.NormalUncertainty.id})
         expected_parameters += [{"name": f"exc_{fruit_salad_exchanges[2].id}_data_quality",
                                  "amount": 1.,
-                                 "uncertainty": uncertainty_dq, },
+                                 "uncertainty": uncertainty_data_quality, },
+                                {"name": f"exc_{fruit_salad_exchanges[2].id}_activity_fit",
+                                 "amount": 1.,
+                                 "uncertainty": uncertainty_activity_fit, },
                                 {"name": f"exc_{fruit_salad_exchanges[2].id}_amount",
                                  "amount": 0.125,
                                  "uncertainty": uncertainty_amount_kiwi, }]
@@ -149,7 +168,10 @@ class TestImport:
              "uncertainty_type": stats_arrays.NoUncertainty.id})
         expected_parameters += [{"name": f"exc_{fruit_salad_exchanges[3].id}_data_quality",
                                  "amount": 1.,
-                                 "uncertainty": uncertainty_dq, },
+                                 "uncertainty": uncertainty_data_quality, },
+                                {"name": f"exc_{fruit_salad_exchanges[3].id}_activity_fit",
+                                 "amount": 1.,
+                                 "uncertainty": uncertainty_activity_fit, },
                                 {"name": f"exc_{fruit_salad_exchanges[3].id}_amount",
                                  "amount": 0.,
                                  "uncertainty": uncertainty_amount_anchovy, }]
@@ -159,20 +181,29 @@ class TestImport:
              "uncertainty_type": stats_arrays.NoUncertainty.id})
         expected_parameters += [{"name": f"exc_{fruit_salad_exchanges[4].id}_data_quality",
                                  "amount": 1.,
-                                 "uncertainty": uncertainty_dq, },
+                                 "uncertainty": uncertainty_data_quality, },
+                                {"name": f"exc_{fruit_salad_exchanges[4].id}_activity_fit",
+                                 "amount": 1.,
+                                 "uncertainty": uncertainty_activity_fit, },
                                 {"name": f"exc_{fruit_salad_exchanges[4].id}_amount",
                                  "amount": 0.1,
                                  "uncertainty": uncertainty_amount_juice, }]
 
         expected_parameters += [{"name": f"exc_{fruit_salad_exchanges[5].id}_data_quality",
                                  "amount": 1.,
-                                 "uncertainty": uncertainty_dq, },
+                                 "uncertainty": uncertainty_data_quality, },
+                                {"name": f"exc_{fruit_salad_exchanges[5].id}_activity_fit",
+                                 "amount": 1.,
+                                 "uncertainty": uncertainty_activity_fit, },
                                 {"name": f"exc_{fruit_salad_exchanges[5].id}_amount",
                                  "formula": "-what_a_waste"}]
 
         expected_parameters += [{"name": f"exc_{juice_exchanges[1].id}_data_quality",
                                  "amount": 1.,
-                                 "uncertainty": uncertainty_dq, },
+                                 "uncertainty": uncertainty_data_quality, },
+                                {"name": f"exc_{juice_exchanges[1].id}_activity_fit",
+                                 "amount": 1.,
+                                 "uncertainty": uncertainty_activity_fit, },
                                 {"name": f"exc_{juice_exchanges[1].id}_amount",
                                  "formula": "amount_beverage_carton", }]
 
@@ -182,7 +213,10 @@ class TestImport:
              "uncertainty_type": stats_arrays.NormalUncertainty.id})
         expected_parameters += [{"name": f"exc_{juice_exchanges[2].id}_data_quality",
                                  "amount": 1.,
-                                 "uncertainty": uncertainty_dq, },
+                                 "uncertainty": uncertainty_data_quality, },
+                                {"name": f"exc_{juice_exchanges[2].id}_activity_fit",
+                                 "amount": 1.,
+                                 "uncertainty": uncertainty_activity_fit, },
                                 {"name": f"exc_{juice_exchanges[2].id}_amount",
                                  "amount": 3.,
                                  "uncertainty": uncertainty_amount_orange, }]
@@ -192,7 +226,10 @@ class TestImport:
              "uncertainty_type": stats_arrays.NoUncertainty.id})
         expected_parameters += [{"name": f"exc_{juice_exchanges[3].id}_data_quality",
                                  "amount": 1.,
-                                 "uncertainty": uncertainty_dq, },
+                                 "uncertainty": uncertainty_data_quality, },
+                                {"name": f"exc_{juice_exchanges[3].id}_activity_fit",
+                                 "amount": 1.,
+                                 "uncertainty": uncertainty_activity_fit, },
                                 {"name": f"exc_{juice_exchanges[3].id}_amount",
                                  "amount": 0.0005,
                                  "uncertainty": uncertainty_amount_water, }]
@@ -201,7 +238,10 @@ class TestImport:
              "uncertainty_type": stats_arrays.NoUncertainty.id})
         expected_parameters += [{"name": f"exc_{juice_exchanges[4].id}_data_quality",
                                  "amount": 1.,
-                                 "uncertainty": uncertainty_dq, },
+                                 "uncertainty": uncertainty_data_quality, },
+                                {"name": f"exc_{juice_exchanges[4].id}_activity_fit",
+                                 "amount": 1.,
+                                 "uncertainty": uncertainty_activity_fit, },
                                 {"name": f"exc_{juice_exchanges[4].id}_amount",
                                  "amount": 0.,
                                  "uncertainty": uncertainty_amount_oxygen, }]
@@ -282,10 +322,17 @@ class TestImport:
             data_quality_uncertainty = {"uncertainty_type": stats_arrays.LognormalUncertainty.id,
                                         "loc": 0.0,
                                         "scale": np.sqrt(exc["scale"]**2 - exc["scale without pedigree"]**2)}
+            activity_fit_uncertainty = {"uncertainty_type": stats_arrays.NoUncertainty.id,
+                                        "loc": 1,}
             expected_param_data_quality = {"name": f"exc_{exc_copy.id}_data_quality",
                                            "amount": 1.0,
                                            "nominal": 1.0,
                                            "uncertainty": stats_arrays.UncertaintyBase.from_dicts(data_quality_uncertainty)}
+            expected_param_activity_fit = {"name": f"exc_{exc_copy.id}_activity_fit",
+                                           "amount": 1.0,
+                                           "nominal": 1.0,
+                                           "uncertainty": stats_arrays.UncertaintyBase.from_dicts(
+                                               activity_fit_uncertainty)}
             if exc["scale without pedigree"] > 0:
                 amount_uncertainty = {"uncertainty_type": stats_arrays.LognormalUncertainty.id,
                                             "loc": np.log(exc["amount"]),
@@ -298,14 +345,16 @@ class TestImport:
                                      "nominal": exc["amount"],
                                      "uncertainty": stats_arrays.UncertaintyBase.from_dicts(amount_uncertainty)}
 
-            assert exc_copy["formula"] == f"{expected_param_amount["name"]}*{expected_param_data_quality["name"]}"
+            assert exc_copy["formula"] == (f"{expected_param_amount["name"]}*{expected_param_data_quality["name"]}*"
+                                           f"{expected_param_activity_fit["name"]}")
 
             expected_params += [expected_param_data_quality,
+                                expected_param_activity_fit,
                                 expected_param_amount]
 
         # Parameters
         assert (len(ProjectParameter.select()) ==
-                (len(activity_copy.technosphere()) + len(activity_copy.biosphere())) * 2)
+                (len(activity_copy.technosphere()) + len(activity_copy.biosphere())) * 3)
         for actual_param, expected_param in zip(ProjectParameter.select(), expected_params):
             assert set(actual_param.dict.keys()) == set(expected_param.keys())
             for key in actual_param.dict.keys():
