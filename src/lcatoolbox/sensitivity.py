@@ -24,6 +24,7 @@ import scipy.stats as sp_stats
 from scipy.special import softmax
 from xgboost import XGBRegressor
 import shap
+from sklearn.linear_model import LinearRegression
 
 # import your own module
 from .compute import calculate_scores
@@ -124,8 +125,16 @@ class GradientBoostingMethod:
     reg_alpha: float | None = None
     reg_lambda: float | None = None
 
+@dataclass
+class RegressionMethod:
+    """
+    Regression Method
+    """
+    N: int
+    seed: int | np.random.Generator | None = None
+
 Method = Union[SobolSaltelliMethod, SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod,
-DeltaMomentIndependentMethod, SpearmanRankCorrelationMethod, GradientBoostingMethod]
+DeltaMomentIndependentMethod, SpearmanRankCorrelationMethod, GradientBoostingMethod, RegressionMethod]
 
 def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                              impact_categories: List[ImpactCategoryTuple],
@@ -180,12 +189,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                                                       M=method.M,
                                                       seed=method.seed, )
         include_background = False
-    elif (isinstance(method, RBDFASTMethod) or
-          isinstance(method, PAWNMethod) or
-          isinstance(method, DeltaMomentIndependentMethod) or
-          isinstance(method, SobolLi2016Method) or
-          isinstance(method, SpearmanRankCorrelationMethod) or
-          isinstance(method, GradientBoostingMethod)):
+    else:
         salib_param_values = salib_sample_latin.sample(salib_problem,
                                                        N=method.N,
                                                        seed=method.seed, )
@@ -252,6 +256,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
 
             criteria = (df_scores["activity"] == act_str) & (df_scores["impact_category"] == ic_str)
             salib_Y = np.array(df_scores[criteria][value_cols]).flatten()
+            salib_Y = (salib_Y - salib_Y.mean()) / salib_Y.std()
 
             salib_param_values_extended = salib_param_values
             if include_background:
@@ -261,7 +266,11 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
 
                     salib_param_values_extended = np.hstack([salib_param_values_extended,
                                                     np.swapaxes(np.array(df_scores[criteria][value_cols]), 0, 1)])
-
+            salib_param_values_extended = salib_param_values_extended.astype(float)
+            salib_param_values_extended = ((salib_param_values_extended -
+                                            np.mean(salib_param_values_extended, axis=0)) /
+                                           np.std(salib_param_values_extended, axis=0))
+            salib_param_values_extended[np.isnan(salib_param_values_extended)] = 0
 
             if isinstance(method, SobolSaltelliMethod):
                 salib_Si = salib_analyze_sobol.analyze(salib_problem, salib_Y,
@@ -352,7 +361,6 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                 df = pd.DataFrame(data)
                 df["spearman_rank"] = df["spearman"].rank(ascending=False)
             elif isinstance(method, GradientBoostingMethod):
-                salib_Y_standardized = (salib_Y - salib_Y.mean()) / salib_Y.std()
                 xgb = XGBRegressor(n_estimators=method.n_estimators,
                                    max_depth=method.max_depth,
                                    max_leaves=method.max_leaves,
@@ -363,7 +371,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                                    reg_alpha=method.reg_alpha,
                                    reg_lambda=method.reg_lambda,
                                    random_state=method.seed,)
-                xgb.fit(salib_param_values_extended, salib_Y_standardized)
+                xgb.fit(salib_param_values_extended, salib_Y)
                 explainer = shap.TreeExplainer(xgb)
                 explanation = explainer(salib_param_values_extended)
                 shap_values = explanation.values
@@ -375,6 +383,18 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                 df["mean_shap_normalized"] = mean_shap_values_norm
                 df["feature_importance_rank"] = df["feature_importance"].rank(ascending=False)
                 df["mean_shap_normalized_rank"] = df["mean_shap_normalized"].rank(ascending=False)
+            elif isinstance(method, RegressionMethod):
+                linreg = LinearRegression().fit(salib_param_values_extended, salib_Y)
+                SRC = np.var(salib_param_values_extended, axis=0) / np.var(salib_Y) * np.power(
+                    linreg.coef_, 2)
+                R2 = np.sum(SRC)
+                CTV = SRC / R2
+                df = pd.DataFrame(
+                    data=SRC,
+                    columns=["src"])
+                df["src_rank"] = df["src"].rank(ascending=False)
+                df["ctv"] = CTV
+                df["ctv_rank"] = df["ctv"].rank(ascending=False)
             df["parameter"] = salib_problem["names"]
             df["type"] = param_types
             df["activity"] = act_str
