@@ -168,12 +168,10 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
         Parameters for each iteration of the process. Same structure as the outputs of .calculate_scores(),
         .run_monte_carlo().
     """
-    project_params = [p for p in ProjectParameter.select()
-                      if p.formula is None
-                      and p.dict["uncertainty"]["uncertainty_type"] not in [stats_arrays.NoUncertainty.id,
-                                                                    stats_arrays.UnknownUncertaintyType]]
+    project_params_independent = [p for p in ProjectParameter.select() if p.formula is None]
+    project_params_dependent = [p for p in ProjectParameter.select() if p.formula is not None]
 
-    salib_problem = _get_salib_problem(project_params)
+    salib_problem = _get_salib_problem(project_params_independent)
 
     if isinstance(method, SobolSaltelliMethod):
         salib_param_values = salib_sample_sobol.sample(salib_problem,
@@ -183,17 +181,20 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                                                        skip_values=method.skip_values,
                                                        seed=method.seed, )
         include_background = False
+        include_dependent = False
     elif isinstance(method, FASTMethod):
         salib_param_values = salib_sample_fast.sample(salib_problem,
                                                       N=method.N,
                                                       M=method.M,
                                                       seed=method.seed, )
         include_background = False
+        include_dependent = False
     else:
         salib_param_values = salib_sample_latin.sample(salib_problem,
                                                        N=method.N,
                                                        seed=method.seed, )
         include_background = True
+        include_dependent = True
     if salib_problem["num_vars"] == 0 and not include_background:
         raise RuntimeError("No parameters to perform uncertainty apportioning.")
 
@@ -240,6 +241,13 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
             salib_problem["bounds"].append(None)
             salib_problem["dists"].append(None)
 
+    if include_dependent:
+        for p in project_params_dependent:
+            salib_problem["names"].append(p.name)
+            salib_problem["num_vars"] += 1
+            salib_problem["bounds"].append(None)
+            salib_problem["dists"].append(None)
+
     param_types = []
     for n in salib_problem["names"]:
         if n[0] == "(":
@@ -266,6 +274,12 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
 
                     salib_param_values_extended = np.hstack([salib_param_values_extended,
                                                     np.swapaxes(np.array(df_scores[criteria][value_cols]), 0, 1)])
+            if include_dependent:
+                for p in project_params_dependent:
+                    criteria = df_parameters["parameter"] == p.name
+                    salib_param_values_extended = np.hstack([salib_param_values_extended,
+                                                             np.swapaxes(np.array(df_parameters[criteria][value_cols]), 0, 1)])
+
             salib_param_values_extended = salib_param_values_extended.astype(float)
             salib_param_values_extended = ((salib_param_values_extended -
                                             np.mean(salib_param_values_extended, axis=0)) /
