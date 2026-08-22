@@ -387,16 +387,23 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                                    random_state=method.seed,)
                 xgb.fit(salib_param_values_extended, salib_Y)
                 explainer = shap.TreeExplainer(xgb)
-                explanation = explainer(salib_param_values_extended)
-                shap_values = explanation.values
-                mean_shap_values = np.mean(np.abs(shap_values), axis=0)
-                mean_shap_values_norm = mean_shap_values / mean_shap_values.sum()
+                explanation = explainer(salib_param_values_extended, interactions=True)
+                shap_values_main_effect = np.diagonal(explanation.values, axis1=1, axis2=2)
+                shap_values_total_effect = np.sum(explanation.values, axis=1)
+                mean_shap_values_main_effect = np.mean(np.abs(shap_values_main_effect), axis=0)
+                mean_shap_values_total_effect = np.mean(np.abs(shap_values_total_effect), axis=0)
+                mean_shap_values_norm_main_effect = mean_shap_values_main_effect / mean_shap_values_main_effect.sum()
+                mean_shap_values_norm_total_effect = mean_shap_values_total_effect / mean_shap_values_total_effect.sum()
                 df = pd.DataFrame(
                     data=xgb.feature_importances_,
                     columns=["feature_importance"])
-                df["mean_shap_normalized"] = mean_shap_values_norm
+                df["mean_shap_normalized_main_effect"] = mean_shap_values_norm_main_effect
+                df["mean_shap_normalized_total_effect"] = mean_shap_values_norm_total_effect
                 df["feature_importance_rank"] = df["feature_importance"].rank(ascending=False)
-                df["mean_shap_normalized_rank"] = df["mean_shap_normalized"].rank(ascending=False)
+                df["mean_shap_normalized_main_effect_rank"] = df["mean_shap_normalized_main_effect"].rank(
+                    ascending=False)
+                df["mean_shap_normalized_total_effect_rank"] = df["mean_shap_normalized_total_effect"].rank(
+                    ascending=False)
             elif isinstance(method, RegressionMethod):
                 linreg = LinearRegression().fit(salib_param_values_extended, salib_Y)
                 SRC = np.var(salib_param_values_extended, axis=0) / np.var(salib_Y) * np.power(
