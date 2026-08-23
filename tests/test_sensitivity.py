@@ -219,8 +219,8 @@ class TestSensitivity:
         assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
         assert len(df_ua.index) == len(activities) * len(impact_categories) * 33
-        expected_cols = {"parameter", "type", "activity", "impact_category", "src",
-                         "src_rank", "ctv", "ctv_rank"}
+        expected_cols = {"parameter", "type", "activity", "impact_category", "S_total",
+                         "S_uncorrelated", "S_correlated", "S_total_rank", "S_uncorrelated_rank"}
         assert set(df_ua.columns) == expected_cols
         assert set(df_ua["type"].unique()) == {"foreground", "background"}
 

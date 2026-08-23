@@ -405,17 +405,44 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                 df["mean_shap_normalized_total_effect_rank"] = df["mean_shap_normalized_total_effect"].rank(
                     ascending=False)
             elif isinstance(method, RegressionMethod):
-                linreg = LinearRegression().fit(salib_param_values_extended, salib_Y)
-                SRC = np.var(salib_param_values_extended, axis=0) / np.var(salib_Y) * np.power(
-                    linreg.coef_, 2)
-                R2 = np.sum(SRC)
-                CTV = SRC / R2
+                linreg_y = LinearRegression(fit_intercept=True).fit(salib_param_values_extended, salib_Y)
+                var_y = np.var(linreg_y.predict(salib_param_values_extended), ddof=1)
+
+                S_total = []
+                S_correlated = []
+                S_uncorrelated = []
+
+                for i in range(salib_problem["num_vars"]):
+                    linreg_y_from_param_i = LinearRegression(fit_intercept=True).fit(
+                        salib_param_values_extended[:, i].reshape(-1, 1),
+                        salib_Y)
+                    var_from_param_i = np.var(
+                        linreg_y_from_param_i.predict(salib_param_values_extended[:, i].reshape(-1, 1)),
+                        ddof=1)
+                    linreg_param_i_from_other_params = LinearRegression(fit_intercept=True).fit(
+                        np.delete(salib_param_values_extended, i, axis=1),
+                        salib_param_values_extended[:, i])
+                    residuals_param_i_from_other_params = (salib_param_values_extended[:, i] -
+                                                           linreg_param_i_from_other_params.predict(
+                                                               np.delete(salib_param_values_extended, i, axis=1)))
+                    linreg_y_from_residuals = LinearRegression(fit_intercept=True).fit(
+                        residuals_param_i_from_other_params.reshape(-1, 1),
+                        salib_Y)
+                    var_uncorrelated_from_param_i = np.var(
+                        linreg_y_from_residuals.predict(residuals_param_i_from_other_params.reshape(-1, 1)),
+                        ddof=1)
+                    var_correlated_from_param_i = var_from_param_i - var_uncorrelated_from_param_i
+
+                    S_total.append(var_from_param_i / var_y)
+                    S_uncorrelated.append(var_uncorrelated_from_param_i / var_y)
+                    S_correlated.append(var_correlated_from_param_i / var_y)
                 df = pd.DataFrame(
-                    data=SRC,
-                    columns=["src"])
-                df["src_rank"] = df["src"].rank(ascending=False)
-                df["ctv"] = CTV
-                df["ctv_rank"] = df["ctv"].rank(ascending=False)
+                    data=S_total,
+                    columns=["S_total"])
+                df["S_uncorrelated"] = S_uncorrelated
+                df["S_correlated"] = S_correlated
+                df["S_total_rank"] = df["S_total"].rank(ascending=False)
+                df["S_uncorrelated_rank"] = df["S_uncorrelated"].rank(ascending=False)
             df["parameter"] = salib_problem["names"]
             df["type"] = param_types
             df["activity"] = act_str
