@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # import built-in module
+import itertools
 
 # import third-party modules
 import pandas as pd
@@ -30,9 +31,12 @@ class TestSensitivity:
                                             impact_categories,
                                             SobolSaltelliMethod(N=2))
 
-        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        expected_activities = [activity_string(act) for act in activities]
+        expected_activities += [f"{activity_string(act_a)} - {activity_string(act_b)}"
+                                for act_a, act_b in itertools.combinations(activities, 2)]
+        assert set(df_ua["activity"]) == set(expected_activities)
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 23
+        assert len(df_ua.index) == len(expected_activities) * len(impact_categories) * 23
         expected_cols = {"parameter", "type", "activity", "impact_category", "S1", "S1_conf", "S1_rank", "ST", "ST_conf",
                          "ST_rank"}
         expected_cols |= {f"S2_{param}" for param in df_ua["parameter"]}
@@ -56,9 +60,12 @@ class TestSensitivity:
                                             impact_categories,
                                             FASTMethod(N=5, M=1))
 
-        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        expected_activities = [activity_string(act) for act in activities]
+        expected_activities += [f"{activity_string(act_a)} - {activity_string(act_b)}"
+                                for act_a, act_b in itertools.combinations(activities, 2)]
+        assert set(df_ua["activity"]) == set(expected_activities)
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 23
+        assert len(df_ua.index) == len(expected_activities) * len(impact_categories) * 23
         expected_cols = {"parameter", "type", "activity", "impact_category", "S1", "S1_conf", "S1_rank", "ST", "ST_conf",
                          "ST_rank"}
         assert set(df_ua.columns) == expected_cols
@@ -80,9 +87,12 @@ class TestSensitivity:
                                             impact_categories,
                                             RBDFASTMethod(N=30, M=5))
 
-        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        expected_activities = [activity_string(act) for act in activities]
+        expected_activities += [f"{activity_string(act_a)} - {activity_string(act_b)}"
+                                for act_a, act_b in itertools.combinations(activities, 2)]
+        assert set(df_ua["activity"]) == set(expected_activities)
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
+        assert len(df_ua.index) == len(expected_activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "S1", "S1_conf", "S1_rank"}
         assert set(df_ua.columns) == expected_cols
         assert set(df_ua["type"].unique()) == {"foreground", "background"}
@@ -102,9 +112,12 @@ class TestSensitivity:
                                             impact_categories,
                                             PAWNMethod(N=20))
 
-        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        expected_activities = [activity_string(act) for act in activities]
+        expected_activities += [f"{activity_string(act_a)} - {activity_string(act_b)}"
+                                for act_a, act_b in itertools.combinations(activities, 2)]
+        assert set(df_ua["activity"]) == set(expected_activities)
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
+        assert len(df_ua.index) == len(expected_activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "minimum", "mean", "median", "maximum", "CV",
                          "stdev", "median_rank", "maximum_rank"}
         assert set(df_ua.columns) == expected_cols
@@ -125,9 +138,12 @@ class TestSensitivity:
                                             impact_categories,
                                             DeltaMomentIndependentMethod(N=20))
 
-        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        expected_activities = [activity_string(act) for act in activities]
+        expected_activities += [f"{activity_string(act_a)} - {activity_string(act_b)}"
+                                for act_a, act_b in itertools.combinations(activities, 2)]
+        assert set(df_ua["activity"]) == set(expected_activities)
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
+        assert len(df_ua.index) == len(expected_activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "delta", "delta_conf",
                          "delta_rank", "S1", "S1_conf", "S1_rank"}
         assert set(df_ua.columns) == expected_cols
@@ -149,9 +165,12 @@ class TestSensitivity:
                                             SobolLi2016Method(N=25,
                                                               n_bins=5))
 
-        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        expected_activities = [activity_string(act) for act in activities]
+        expected_activities += [f"{activity_string(act_a)} - {activity_string(act_b)}"
+                                for act_a, act_b in itertools.combinations(activities, 2)]
+        assert set(df_ua["activity"]) == set(expected_activities)
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
+        assert len(df_ua.index) == len(expected_activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "S1_alg_1", "S1_alg_2", "S1_alg_1_rank", "S1_alg_2_rank"}
         assert set(df_ua.columns) == expected_cols
         assert set(df_ua["type"].unique()) == {"foreground", "background"}
@@ -171,9 +190,12 @@ class TestSensitivity:
                                             impact_categories,
                                             SpearmanRankCorrelationMethod(N=25))
 
-        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        expected_activities = [activity_string(act) for act in activities]
+        expected_activities += [f"{activity_string(act_a)} - {activity_string(act_b)}"
+                                for act_a, act_b in itertools.combinations(activities, 2)]
+        assert set(df_ua["activity"]) == set(expected_activities)
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
+        assert len(df_ua.index) == len(expected_activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "spearman", "spearman_rank"}
         assert set(df_ua.columns) == expected_cols
         assert set(df_ua["type"].unique()) == {"foreground", "background"}
@@ -193,9 +215,12 @@ class TestSensitivity:
                                                              impact_categories,
                                                              GradientBoostingMethod(N=25))
 
-        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        expected_activities = [activity_string(act) for act in activities]
+        expected_activities += [f"{activity_string(act_a)} - {activity_string(act_b)}"
+                                for act_a, act_b in itertools.combinations(activities, 2)]
+        assert set(df_ua["activity"]) == set(expected_activities)
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
+        assert len(df_ua.index) == len(expected_activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "feature_importance",
                          "feature_importance_rank", "mean_shap_normalized_main_effect",
                          "mean_shap_normalized_main_effect_rank", "mean_shap_normalized_total_effect",
@@ -218,9 +243,12 @@ class TestSensitivity:
                                                              impact_categories,
                                                              RegressionMethod(N=25))
 
-        assert set(df_ua["activity"]) == set([activity_string(act) for act in activities])
+        expected_activities = [activity_string(act) for act in activities]
+        expected_activities += [f"{activity_string(act_a)} - {activity_string(act_b)}"
+                                for act_a, act_b in itertools.combinations(activities, 2)]
+        assert set(df_ua["activity"]) == set(expected_activities)
         assert set(df_ua["impact_category"]) == set([str(ic) for ic in impact_categories])
-        assert len(df_ua.index) == len(activities) * len(impact_categories) * 30
+        assert len(df_ua.index) == len(expected_activities) * len(impact_categories) * 30
         expected_cols = {"parameter", "type", "activity", "impact_category", "S_total", "S_uncorrelated",
                          "S_correlated", "S_total_rank", "S_uncorrelated_rank"}
         assert set(df_ua.columns) == expected_cols

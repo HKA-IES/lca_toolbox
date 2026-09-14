@@ -5,6 +5,7 @@ from typing import List, Dict, Union, Tuple
 import warnings
 import time
 from dataclasses import dataclass
+from itertools import combinations_with_replacement
 
 # import third-party modules
 import bw2data as bd
@@ -249,13 +250,24 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
 
     ua_results = []
     value_cols = [f"value_{i}" for i in range(n_iterations)]
-    for act in activities:
-        act_str = activity_string(act)
+    for act_a, act_b in combinations_with_replacement(activities, 2):
+        if act_a == act_b:
+            act_str = activity_string(act_a)
+        else:
+            act_str = f"{activity_string(act_a)} - {activity_string(act_b)}"
+
         for ic in impact_categories:
             ic_str = str(ic)
 
-            criteria = (df_scores["activity"] == act_str) & (df_scores["impact_category"] == ic_str)
-            salib_Y = np.array(df_scores[criteria][value_cols]).flatten()
+            if act_a == act_b:
+                criteria = (df_scores["activity"] == act_str) & (df_scores["impact_category"] == ic_str)
+                salib_Y = np.array(df_scores[criteria][value_cols]).flatten()
+            else:
+                criteria_a = (df_scores["activity"] == activity_string(act_a)) & (df_scores["impact_category"] == ic_str)
+                criteria_b = (df_scores["activity"] == activity_string(act_b)) & (
+                            df_scores["impact_category"] == ic_str)
+                salib_Y = np.array(df_scores[criteria_a][value_cols]).flatten() - np.array(df_scores[criteria_b][value_cols]).flatten()
+
             salib_Y = (salib_Y - salib_Y.mean()) / salib_Y.std()
 
             salib_param_values_extended = salib_param_values
