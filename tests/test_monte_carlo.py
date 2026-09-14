@@ -8,7 +8,7 @@ from bw2data.parameters import ProjectParameter
 import pandas as pd
 
 # import your own module
-from lcatoolbox import run_monte_carlo, discernability_analysis, activity_string
+from lcatoolbox import run_monte_carlo, discernibility_analysis, activity_string
 from setup_bw_project import imported_activities, setup_brightway
 
 class TestMonteCarlo:
@@ -116,7 +116,7 @@ class TestMonteCarlo:
         assert set(df_scores_background.columns) == {"activity", "impact_category", "value_0"}
 
 
-    def test_discernability_analysis(self):
+    def test_discernibility_analysis(self):
         scores = [{"activity": "act_0", "impact_category": "ic_0",
                    "value_0": 0, "value_1": 1, "value_2": 2, "value_3": 3, "value_4": 4,},
                   {"activity": "act_0", "impact_category": "ic_1",
@@ -132,27 +132,45 @@ class TestMonteCarlo:
                   ]
         df_scores = pd.DataFrame(scores)
 
-        expected_results = [{"activity_A": "act_0", "activity_B": "act_0", "impact_category": "ic_0", "P_A>B": 0/5,},
-                            {"activity_A": "act_0", "activity_B": "act_1", "impact_category": "ic_0", "P_A>B": 2/5,},
-                            {"activity_A": "act_0", "activity_B": "act_2", "impact_category": "ic_0", "P_A>B": 0/5,},
-                            {"activity_A": "act_1", "activity_B": "act_0", "impact_category": "ic_0", "P_A>B": 2/5,},
-                            {"activity_A": "act_1", "activity_B": "act_1", "impact_category": "ic_0", "P_A>B": 0/5,},
-                            {"activity_A": "act_1", "activity_B": "act_2", "impact_category": "ic_0", "P_A>B": 2/5,},
-                            {"activity_A": "act_2", "activity_B": "act_0", "impact_category": "ic_0", "P_A>B": 5/5,},
-                            {"activity_A": "act_2", "activity_B": "act_1", "impact_category": "ic_0", "P_A>B": 3/5,},
-                            {"activity_A": "act_2", "activity_B": "act_2", "impact_category": "ic_0", "P_A>B": 0/5,},
-                            {"activity_A": "act_0", "activity_B": "act_0", "impact_category": "ic_1", "P_A>B": 0/5, },
-                            {"activity_A": "act_0", "activity_B": "act_1", "impact_category": "ic_1", "P_A>B": 2/5, },
-                            {"activity_A": "act_0", "activity_B": "act_2", "impact_category": "ic_1", "P_A>B": 0/5, },
-                            {"activity_A": "act_1", "activity_B": "act_0", "impact_category": "ic_1", "P_A>B": 2/5, },
-                            {"activity_A": "act_1", "activity_B": "act_1", "impact_category": "ic_1", "P_A>B": 0/5, },
-                            {"activity_A": "act_1", "activity_B": "act_2", "impact_category": "ic_1", "P_A>B": 2/5, },
-                            {"activity_A": "act_2", "activity_B": "act_0", "impact_category": "ic_1", "P_A>B": 5/5, },
-                            {"activity_A": "act_2", "activity_B": "act_1", "impact_category": "ic_1", "P_A>B": 3/5, },
-                            {"activity_A": "act_2", "activity_B": "act_2", "impact_category": "ic_1", "P_A>B": 0/5, },
+        expected_results = [{"activity_A": "act_0", "activity_B": "act_0", "impact_category": "ic_0",
+                             "P_A>B": 0/5, "discernibility": 1.0,},
+                            {"activity_A": "act_0", "activity_B": "act_1", "impact_category": "ic_0",
+                             "P_A>B": 2/5, "discernibility": 0.2,},
+                            {"activity_A": "act_0", "activity_B": "act_2", "impact_category": "ic_0",
+                             "P_A>B": 0/5, "discernibility": 1.0,},
+                            {"activity_A": "act_1", "activity_B": "act_0", "impact_category": "ic_0",
+                             "P_A>B": 2/5, "discernibility": 0.2,},
+                            {"activity_A": "act_1", "activity_B": "act_1", "impact_category": "ic_0",
+                             "P_A>B": 0/5, "discernibility": 1.0,},
+                            {"activity_A": "act_1", "activity_B": "act_2", "impact_category": "ic_0",
+                             "P_A>B": 2/5, "discernibility": 0.2,},
+                            {"activity_A": "act_2", "activity_B": "act_0", "impact_category": "ic_0",
+                             "P_A>B": 5/5, "discernibility": 1.0,},
+                            {"activity_A": "act_2", "activity_B": "act_1", "impact_category": "ic_0",
+                             "P_A>B": 3/5, "discernibility": 0.2,},
+                            {"activity_A": "act_2", "activity_B": "act_2", "impact_category": "ic_0",
+                             "P_A>B": 0/5, "discernibility": 1.0,},
+                            {"activity_A": "act_0", "activity_B": "act_0", "impact_category": "ic_1",
+                             "P_A>B": 0/5, "discernibility": 1.0,},
+                            {"activity_A": "act_0", "activity_B": "act_1", "impact_category": "ic_1",
+                             "P_A>B": 2/5, "discernibility": 0.2,},
+                            {"activity_A": "act_0", "activity_B": "act_2", "impact_category": "ic_1",
+                             "P_A>B": 0/5, "discernibility": 1.0,},
+                            {"activity_A": "act_1", "activity_B": "act_0", "impact_category": "ic_1",
+                             "P_A>B": 2/5, "discernibility": 0.2,},
+                            {"activity_A": "act_1", "activity_B": "act_1", "impact_category": "ic_1",
+                             "P_A>B": 0/5, "discernibility": 1.0,},
+                            {"activity_A": "act_1", "activity_B": "act_2", "impact_category": "ic_1",
+                             "P_A>B": 2/5, "discernibility": 0.2,},
+                            {"activity_A": "act_2", "activity_B": "act_0", "impact_category": "ic_1",
+                             "P_A>B": 5/5, "discernibility": 1.0,},
+                            {"activity_A": "act_2", "activity_B": "act_1", "impact_category": "ic_1",
+                             "P_A>B": 3/5, "discernibility": 0.2,},
+                            {"activity_A": "act_2", "activity_B": "act_2", "impact_category": "ic_1",
+                             "P_A>B": 0/5, "discernibility": 1.0,},
                             ]
         df_expected_results = pd.DataFrame(expected_results)
 
-        df_actual_results = discernability_analysis(df_scores)
+        df_actual_results = discernibility_analysis(df_scores)
 
-        assert df_actual_results.equals(df_expected_results)
+        pd.testing.assert_frame_equal(df_expected_results, df_actual_results)

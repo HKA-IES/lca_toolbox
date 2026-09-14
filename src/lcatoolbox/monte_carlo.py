@@ -92,13 +92,13 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
 
     return df_scores, df_scores_background, df_parameters
 
-def discernability_analysis(df_scores: pd.DataFrame) -> pd.DataFrame:
+def discernibility_analysis(df_scores: pd.DataFrame) -> pd.DataFrame:
     activities = list(df_scores["activity"].unique())
     if len(activities) < 2:
         raise ValueError("scores must contain scores for at least two activities.")
     impact_categories = list(df_scores["impact_category"].unique())
-    n_iterations = len(df_scores.columns) - 2
-    value_cols = [f"value_{i}" for i in range(n_iterations)]
+    value_cols = [col for col in df_scores.columns if col.startswith("value")]
+    n_iterations = len(value_cols)
 
     results = []
     for ic in impact_categories:
@@ -110,10 +110,12 @@ def discernability_analysis(df_scores: pd.DataFrame) -> pd.DataFrame:
                 values_act_B = np.array(df_scores[criteria_act_B][value_cols]).flatten()
 
                 P_A_ov_B = np.sum(values_act_A > values_act_B) / n_iterations
+                discernibility = np.abs(P_A_ov_B - 0.5)*2
                 results.append({"activity_A": act_A,
                                 "activity_B": act_B,
                                 "impact_category": ic,
-                                "P_A>B": P_A_ov_B})
+                                "P_A>B": P_A_ov_B,
+                                "discernibility": discernibility})
     df_results = pd.DataFrame(results)
     return df_results
 
