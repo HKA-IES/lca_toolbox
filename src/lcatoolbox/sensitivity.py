@@ -30,7 +30,7 @@ from sklearn.linear_model import LinearRegression
 # import your own module
 from .compute import calculate_scores
 from .types import ImpactCategoryTuple, activity_string
-from .monte_carlo import run_monte_carlo
+from .monte_carlo import run_monte_carlo, discernibility_analysis
 
 @dataclass
 class SobolSaltelliMethod:
@@ -450,6 +450,46 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
     ua_df = pd.concat(ua_results, ignore_index=True)
     return ua_df, df_scores, df_parameters
 
+def aggregate_uncertainty_apportioning_results(ua: pd.DataFrame, scores: pd.DataFrame,
+                                               act_a: bd.backends.proxies.Activity,
+                                               act_b: bd.backends.proxies.Activity) -> pd.DataFrame:
+    """
+    Calculate aggregated ranks for the uncertainty apportioning between two activities. Aggregation is based on the
+    discernibility for each impact category.
+    """
+
+    discernibility = discernibility_analysis(scores)
+    discernibility = discernibility[
+        (discernibility["activity_A"] == activity_string(act_a)) &
+        (discernibility["activity_B"] == activity_string(act_b))]
+    discernibility.drop(columns=["activity_A", "activity_B"], inplace=True)
+
+    target_act_str = f"{activity_string(act_a)} - {activity_string(act_b)}"
+    if target_act_str not in list(ua["activity"].unique()):
+        target_act_str = f"{activity_string(act_b)} - {activity_string(act_a)}"
+        if target_act_str not in list(ua["activity"].unique()):
+            raise ValueError(f"Cannot find difference between {activity_string(act_a)} and {activity_string(act_b)} "
+                             f"in ua.")
+
+    ua_target = ua[ua["activity"] == target_act_str]
+
+    sensitivity_metrics = [col for col in ua_target.columns
+                              if col not in ["parameter", "type", "activity", "impact_category"]]
+    aggregated_sensitivity = []
+
+    for param in ua_target["parameter"].unique():
+        aggregated_sensitivity.append({"parameter": param,})
+        sdf = ua_target[ua_target["parameter"] == param]
+
+        for s in sensitivity_metrics:
+            aggregated_sensitivity[-1][f"{s}_aggregated"] = ((sdf[s].values *
+                                                      (1 - discernibility["discernibility"].values)).sum()
+                                                      / (1 - discernibility["discernibility"].values).sum())
+
+    df_aggregated_sensitivity = pd.DataFrame(aggregated_sensitivity)
+
+    return df_aggregated_sensitivity
+
 def _get_salib_problem(project_parameters: List[ProjectParameter]) -> Dict:
     salib_problem = {
         'names': [],
@@ -539,6 +579,9 @@ def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
     results: Dict
         TODO: Finish doc here.
     """
+
+    # TODO: Handle differences between activities (as in uncertainty_apportioning)
+
     # First compute nominal scores
     df_scores_nominal, df_parameters_nominal = calculate_scores(activities,
                                   impact_categories,

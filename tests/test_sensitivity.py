@@ -11,7 +11,8 @@ import bw2calc as bc
 # import your own module
 from lcatoolbox import (uncertainty_apportioning, local_sensitivity_analysis, activity_string, SobolSaltelliMethod,
                         SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod, DeltaMomentIndependentMethod,
-                        SpearmanRankCorrelationMethod, GradientBoostingMethod, RegressionMethod)
+                        SpearmanRankCorrelationMethod, GradientBoostingMethod, RegressionMethod,
+                        aggregate_uncertainty_apportioning_results)
 from setup_bw_project import setup_brightway, imported_activities
 
 class TestSensitivity:
@@ -253,6 +254,29 @@ class TestSensitivity:
                          "S_correlated", "S_total_rank", "S_uncorrelated_rank"}
         assert set(df_ua.columns) == expected_cols
         assert set(df_ua["type"].unique()) == {"foreground", "background"}
+
+    def test_aggregate_uncertainty_apportioning_results(self, imported_activities):
+        activities = imported_activities
+        impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'water use',
+                              'user deprivation potential (deprivation-weighted water consumption)')]
+
+        # To solve the NonSquareTechnosphere error which pops up when running the MultiLCA, first run the following
+        # Why? I don't know...
+        _ = bc.LCA(demand={activities[0]: 1}, method=impact_categories[1])
+
+        df_ua, scores, parameters = uncertainty_apportioning(activities,
+                                                             impact_categories,
+                                                             RegressionMethod(N=25))
+
+        df_ua_agg = aggregate_uncertainty_apportioning_results(df_ua, scores, activities[0], activities[1])
+
+        assert len(df_ua_agg.index) == 30
+        expected_cols = {"parameter", "S_total_aggregated", "S_uncorrelated_aggregated",
+                         "S_correlated_aggregated", "S_total_rank_aggregated",
+                         "S_uncorrelated_rank_aggregated"}
+        assert set(df_ua_agg.columns) == expected_cols
 
     def test_local_sensitivity_analysis(self, imported_activities):
         activities = imported_activities

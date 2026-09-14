@@ -6,7 +6,8 @@ from .import_ import (import_foreground, copy_ecoinvent_activity, reset_foregrou
                       apply_openlca_preprocessing_to_ecoinvent)
 from .methods import get_impact_categories
 from .monte_carlo import run_monte_carlo, discernibility_analysis
-from .sensitivity import (local_sensitivity_analysis, uncertainty_apportioning, SobolSaltelliMethod, SobolLi2016Method,
+from .sensitivity import (local_sensitivity_analysis, uncertainty_apportioning,
+                          aggregate_uncertainty_apportioning_results, SobolSaltelliMethod, SobolLi2016Method,
                           FASTMethod, RBDFASTMethod, PAWNMethod, DeltaMomentIndependentMethod,
                           SpearmanRankCorrelationMethod, GradientBoostingMethod, RegressionMethod)
 from .compute import calculate_scores
