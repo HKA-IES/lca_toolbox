@@ -21,6 +21,7 @@ dependencies = [
     "pyexcel",
     "pandas",
     "SALib",
+    "xgboost",
 ]
 license = {file = "LICENSE"}
 
