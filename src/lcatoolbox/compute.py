@@ -90,7 +90,7 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
         for ic in impact_categories:
             scores.append({"activity": activity_string(act),
                            "impact_category": str(ic),
-                           "value_0": lca_scores[ic, str(act.id)]})
+                           "value": lca_scores[ic, str(act.id)]})
     df_scores = pd.DataFrame(scores)
 
     parameters = []
@@ -101,7 +101,7 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
             param_type = "dependent"
         parameters.append({"parameter": param.name,
                            "type": param_type,
-                           "value_0": param.amount})
+                           "value": param.amount})
     df_parameters = pd.DataFrame(parameters)
 
     return df_scores, df_parameters

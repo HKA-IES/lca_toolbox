@@ -65,6 +65,12 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
     if progress_bar:
         _print_monte_carlo_progress(0, n_iterations, elapsed, remaining)
 
+    df_scores["values"] = pd.Series([[x] for x in df_scores["value"]])
+    df_scores.drop(["value"], axis=1, inplace=True)
+    if len(df_parameters) > 0:
+        df_parameters["values"] = pd.Series([[x] for x in df_parameters["value"]])
+        df_parameters.drop(["value"], axis=1, inplace=True)
+
     # subsequent iterations
     for i in range(1, n_iterations):
         if len(project_params) > 0:
@@ -74,9 +80,9 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
                                                   param_values,
                                                   use_exchange_distributions=True,
                                                   use_parameters_distributions=True)
-        df_scores[f"value_{i}"] = df_scores_i[f"value_0"]
+        df_scores["values"] = pd.Series([x1 + [x2] for x1, x2 in zip(df_scores["values"], df_scores_i["value"])])
         if len(df_parameters) > 0:
-            df_parameters[f"value_{i}"] = df_parameters_i["value_0"]
+            df_parameters["values"] = pd.Series([x1 + [x2] for x1, x2 in zip(df_parameters["values"], df_parameters_i["value"])])
 
         elapsed = time.time() - start_time
         remaining = elapsed / (i+1) * (n_iterations - i + 1)
@@ -87,8 +93,11 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
     activities_rows_idx = df_scores["activity"].isin([activity_string(act) for act in activities])
     background_activities_rows_idx = df_scores["activity"].isin([activity_string(act) for act in background_activities])
 
-    df_scores_background = df_scores.iloc[background_activities_rows_idx]
-    df_scores = df_scores.iloc[activities_rows_idx]
+    df_scores_background = df_scores.iloc[background_activities_rows_idx].copy()
+    df_scores = df_scores.iloc[activities_rows_idx].copy()
+
+    df_scores_background.reset_index(drop=True, inplace=True)
+    df_scores.reset_index(drop=True, inplace=True)
 
     return df_scores, df_scores_background, df_parameters
 
@@ -97,17 +106,16 @@ def discernibility_analysis(df_scores: pd.DataFrame) -> pd.DataFrame:
     if len(activities) < 2:
         raise ValueError("scores must contain scores for at least two activities.")
     impact_categories = list(df_scores["impact_category"].unique())
-    value_cols = [col for col in df_scores.columns if col.startswith("value")]
-    n_iterations = len(value_cols)
+    n_iterations = len(df_scores["values"][0])
 
     results = []
     for ic in impact_categories:
         for act_A in activities:
             for act_B in activities:
                 criteria_act_A = (df_scores["activity"] == act_A) & (df_scores["impact_category"] == ic)
-                values_act_A = np.array(df_scores[criteria_act_A][value_cols]).flatten()
+                values_act_A = np.array(df_scores[criteria_act_A]["values"].values[0]).flatten()
                 criteria_act_B = (df_scores["activity"] == act_B) & (df_scores["impact_category"] == ic)
-                values_act_B = np.array(df_scores[criteria_act_B][value_cols]).flatten()
+                values_act_B = np.array(df_scores[criteria_act_B]["values"].values[0]).flatten()
 
                 P_A_ov_B = np.sum(values_act_A > values_act_B) / n_iterations
                 discernibility = np.abs(P_A_ov_B - 0.5)*2

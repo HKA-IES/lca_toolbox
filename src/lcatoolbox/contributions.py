@@ -66,7 +66,7 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
         contributions = []
 
         criteria = (df_scores["activity"] == activity_string(act)) & (df_scores["impact_category"] == str(impact_category))
-        score = df_scores[criteria]["value_0"].values[0]
+        score = df_scores[criteria]["value"].values[0]
         if parent_act is None:
             contributions.append({"activity_name": act["name"],
                                        "activity_location": act["location"],
@@ -94,7 +94,7 @@ def contributions_tree(activity: bd.backends.proxies.Activity,
     contributions = get_contributions(None, activity, amount, 0, max_depth)
     df = pd.DataFrame(contributions)
     criteria = (df_scores["activity"] == activity_string(activity)) & (df_scores["impact_category"] == str(impact_category))
-    total_score = amount * df_scores[criteria]["value_0"].values[0]
+    total_score = amount * df_scores[criteria]["value"].values[0]
     df["contribution"] = df["score"] / total_score
 
     return df
@@ -164,7 +164,7 @@ def grouped_contributions(activity: bd.backends.proxies.Activity,
                     exc_amount *= -1
 
                 criteria = (df_scores["activity"] == activity_string(exc.input)) & (df_scores["impact_category"] == str(impact_category))
-                score = df_scores[criteria]["value_0"].values[0]
+                score = df_scores[criteria]["value"].values[0]
                 try:
                     # grouped_contributions[exc["group"]] += lca.df_scores[impact_category, str(exc.input.id)]*amount*exc_amount/abs(production_amount)
                     grouped_contributions[exc["group"]] += score * amount * exc_amount / abs(production_amount)
@@ -183,7 +183,7 @@ def grouped_contributions(activity: bd.backends.proxies.Activity,
     grouped_contributions = get_contributions(activity, amount, max_depth)
     df = pd.DataFrame(list(grouped_contributions.items()), columns=["group", "score"])
     criteria = (df_scores["activity"] == activity_string(activity)) & (df_scores["impact_category"] == str(impact_category))
-    total_score = amount * df_scores[criteria]["value_0"].values[0]
+    total_score = amount * df_scores[criteria]["value"].values[0]
     df["contribution"] = df["score"] / total_score
 
     return df

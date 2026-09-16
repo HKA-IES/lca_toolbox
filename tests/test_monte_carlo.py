@@ -40,12 +40,13 @@ class TestMonteCarlo:
 
         # Validation of df_scores
         assert len(df_scores) == len(activities) * len(impact_categories)
-        assert set(df_scores.columns) == {"activity", "impact_category"} | {f"value_{i}" for i in range(n_iterations)}
+        assert set(df_scores.columns) == {"activity", "impact_category", "values"}
         assert set(df_scores["activity"].unique()) == {activity_string(act) for act in activities}
         assert set(df_scores["impact_category"].unique()) == {str(ic) for ic in impact_categories}
+        assert len(df_scores["values"][0]) == n_iterations
 
         # Values differ from one iteration to the other
-        assert (df_scores["value_0"] != df_scores["value_1"]).all()
+        assert df_scores["values"][0][0] != df_scores["values"][0][1]
 
         # Values differ from one activity to the other
         df_scores_act_0 = df_scores[df_scores["activity"] == activity_string(activities[0])]
@@ -59,12 +60,13 @@ class TestMonteCarlo:
 
         # Validation of df_scores_background
         assert len(df_scores_background) == len(background_activities) * len(impact_categories)
-        assert set(df_scores_background.columns) == {"activity", "impact_category"} | {f"value_{i}" for i in range(n_iterations)}
+        assert set(df_scores_background.columns) == {"activity", "impact_category", "values"}
         assert set(df_scores_background["activity"].unique()) == {activity_string(act) for act in background_activities}
         assert set(df_scores_background["impact_category"].unique()) == {str(ic) for ic in impact_categories}
+        assert len(df_scores_background["values"][0]) == n_iterations
 
         # Values differ from one iteration to the other
-        assert (df_scores_background["value_0"] != df_scores_background["value_1"]).all()
+        assert df_scores_background["values"][0][0] != df_scores_background["values"][0][1]
 
         # Values differ from one activity to the other
         df_scores_background_act_0 = df_scores_background[df_scores_background["activity"] == activity_string(background_activities[0])]
@@ -78,13 +80,14 @@ class TestMonteCarlo:
 
         # Validation of df_parameters
         assert len(df_parameters) == len(ProjectParameter.select())
-        assert set(df_parameters.columns) == {"parameter", "type"} | {f"value_{i}" for i in range(n_iterations)}
+        assert set(df_parameters.columns) == {"parameter", "type", "values"}
+        assert len(df_parameters["values"][0]) == n_iterations
 
         # Correct values
         assert set(df_parameters["parameter"].unique()) == {param.name for param in ProjectParameter.select()}
 
         # Values differ from one iteration to the other
-        assert not df_parameters["value_0"].equals(df_parameters["value_1"])
+        assert df_parameters["values"][0][0] != df_parameters["values"][0][1]
 
     def test_run_monte_carlo_no_parameters(self):
         # Ensure that everything runs smoothly when no ProjectParameters have been defined.
@@ -112,23 +115,22 @@ class TestMonteCarlo:
                                   n_iterations=n_iterations, )
 
         assert len(df_scores) == len(imported_activities) * len(impact_categories)
-        assert set(df_scores.columns) == {"activity", "impact_category", "value_0"}
-        assert set(df_scores_background.columns) == {"activity", "impact_category", "value_0"}
+        assert len(df_scores["values"][0]) == 1
 
 
     def test_discernibility_analysis(self):
         scores = [{"activity": "act_0", "impact_category": "ic_0",
-                   "value_0": 0, "value_1": 1, "value_2": 2, "value_3": 3, "value_4": 4,},
+                   "values": [0, 1, 2, 3, 4],},
                   {"activity": "act_0", "impact_category": "ic_1",
-                   "value_0": 0, "value_1": 1, "value_2": 2, "value_3": 3, "value_4": 4,},
+                   "values": [0, 1, 2, 3, 4],},
                   {"activity": "act_1", "impact_category": "ic_0",
-                   "value_0": 4, "value_1": 3, "value_2": 2, "value_3": 1, "value_4": 0, },
+                   "values": [4, 3, 2, 1, 0], },
                   {"activity": "act_1", "impact_category": "ic_1",
-                   "value_0": 4, "value_1": 3, "value_2": 2, "value_3": 1, "value_4": 0, },
+                   "values": [4, 3, 2, 1, 0], },
                   {"activity": "act_2", "impact_category": "ic_0",
-                   "value_0": 1, "value_1": 2, "value_2": 3, "value_3": 4, "value_4": 5, },
+                   "values": [1, 2, 3, 4, 5], },
                   {"activity": "act_2", "impact_category": "ic_1",
-                   "value_0": 1, "value_1": 2, "value_2": 3, "value_3": 4, "value_4": 5, },
+                   "values": [1, 2, 3, 4, 5], },
                   ]
         df_scores = pd.DataFrame(scores)
 

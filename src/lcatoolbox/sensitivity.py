@@ -217,6 +217,12 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
     if progress_bar:
         _print_uncertainty_apportioning_progress(0, n_iterations, elapsed, remaining)
 
+    df_scores["values"] = pd.Series([[x] for x in df_scores["value"]])
+    df_scores.drop(["value"], axis=1, inplace=True)
+    if len(df_parameters) > 0:
+        df_parameters["values"] = pd.Series([[x] for x in df_parameters["value"]])
+        df_parameters.drop(["value"], axis=1, inplace=True)
+
     for i in range(1, n_iterations):
         param_values = {name: values for name, values in zip(salib_problem["names"], salib_param_values[i])}
 
@@ -225,8 +231,10 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                                                         param_values,
                                                         use_exchange_distributions=True)
 
-        df_scores[f"value_{i}"] = df_scores_i["value_0"]
-        df_parameters[f"value_{i}"] = df_parameters_i["value_0"]
+        df_scores["values"] = pd.Series([x1 + [x2] for x1, x2 in zip(df_scores["values"], df_scores_i["value"])])
+        if len(df_parameters) > 0:
+            df_parameters["values"] = pd.Series(
+                [x1 + [x2] for x1, x2 in zip(df_parameters["values"], df_parameters_i["value"])])
 
         elapsed = time.time() - start_time
         remaining = elapsed / (i + 1) * (n_iterations - i + 1)
@@ -249,7 +257,6 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
             param_types.append("foreground")
 
     ua_results = []
-    value_cols = [f"value_{i}" for i in range(n_iterations)]
     for act_a, act_b in combinations_with_replacement(activities, 2):
         if act_a == act_b:
             act_str = activity_string(act_a)
@@ -261,12 +268,12 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
 
             if act_a == act_b:
                 criteria = (df_scores["activity"] == act_str) & (df_scores["impact_category"] == ic_str)
-                salib_Y = np.array(df_scores[criteria][value_cols]).flatten()
+                salib_Y = np.array(df_scores[criteria]["values"].values[0]).flatten()
             else:
                 criteria_a = (df_scores["activity"] == activity_string(act_a)) & (df_scores["impact_category"] == ic_str)
                 criteria_b = (df_scores["activity"] == activity_string(act_b)) & (
                             df_scores["impact_category"] == ic_str)
-                salib_Y = np.array(df_scores[criteria_a][value_cols]).flatten() - np.array(df_scores[criteria_b][value_cols]).flatten()
+                salib_Y = np.array(df_scores[criteria_a]["values"].values[0]).flatten() - np.array(df_scores[criteria_b]["values"].values[0]).flatten()
 
             salib_Y = (salib_Y - salib_Y.mean()) / salib_Y.std()
 
@@ -277,7 +284,7 @@ def uncertainty_apportioning(activities: List[bd.backends.proxies.Activity],
                     criteria = (df_scores["activity"] == bact_str) & (df_scores["impact_category"] == ic_str)
 
                     salib_param_values_extended = np.hstack([salib_param_values_extended,
-                                                    np.swapaxes(np.array(df_scores[criteria][value_cols]), 0, 1)])
+                               np.expand_dims(np.array(df_scores[criteria]["values"].values[0]), 1)])
             salib_param_values_extended = salib_param_values_extended.astype(float)
             salib_param_values_extended = ((salib_param_values_extended -
                                             np.mean(salib_param_values_extended, axis=0)) /
@@ -599,7 +606,7 @@ def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
         if not param in list(df_parameters_nominal["parameter"]):
             raise ValueError(f"Parameter {param} not found in the model.")
 
-        param_nominal = df_parameters_nominal[df_parameters_nominal["parameter"] == param]["value_0"].values[0]
+        param_nominal = df_parameters_nominal[df_parameters_nominal["parameter"] == param]["value"].values[0]
         param_perturbed = (1+perturbation_size) * param_nominal
 
         df_scores_perturbed, _ = calculate_scores(activities,
@@ -611,10 +618,10 @@ def local_sensitivity_analysis(activities: List[bd.backends.proxies.Activity],
         for act in activities:
             for ic in impact_categories:
                 criteria = (df_scores_nominal["activity"] == activity_string(act)) & (df_scores_nominal["impact_category"] == str(ic))
-                score_nominal = df_scores_nominal[criteria]["value_0"].values[0]
+                score_nominal = df_scores_nominal[criteria]["value"].values[0]
                 criteria = (df_scores_perturbed["activity"] == activity_string(act)) & (
                             df_scores_perturbed["impact_category"] == str(ic))
-                score_perturbed = df_scores_perturbed[criteria]["value_0"].values[0]
+                score_perturbed = df_scores_perturbed[criteria]["value"].values[0]
                 sensitivity = ((score_perturbed - score_nominal)
                                / (param_perturbed - param_nominal))
                 elasticity = (param_nominal / score_nominal) * sensitivity

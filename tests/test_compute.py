@@ -27,12 +27,12 @@ class TestCompute:
 
         # Expected length
         assert len(df_scores) == len(activities) * len(impact_categories)
-        assert set(df_scores.columns) == {"activity", "impact_category", "value_0"}
+        assert set(df_scores.columns) == {"activity", "impact_category", "value"}
         assert set(df_scores["activity"].unique()) == {activity_string(act) for act in activities}
         assert set(df_scores["impact_category"].unique()) == {str(ic) for ic in impact_categories}
 
         assert len(df_parameters) == len(ProjectParameter.select())
-        assert set(df_parameters.columns) == {"parameter", "type", "value_0"}
+        assert set(df_parameters.columns) == {"parameter", "type", "value"}
 
         # Scores differ from one activity to the other
         df_scores_act_0 = df_scores[df_scores["activity"] == activity_string(activities[0])]
@@ -109,8 +109,8 @@ class TestCompute:
                                                         parameters={"some_random_value": 3})
 
         # Parameter value is reflected in parameters
-        assert df_parameters_1[df_parameters_1["parameter"] == "some_random_value"]["value_0"].values[0] == 2
-        assert df_parameters_2[df_parameters_2["parameter"] == "some_random_value"]["value_0"].values[0] == 3
+        assert df_parameters_1[df_parameters_1["parameter"] == "some_random_value"]["value"].values[0] == 2
+        assert df_parameters_2[df_parameters_2["parameter"] == "some_random_value"]["value"].values[0] == 3
 
         # Scores differ from one iteration to the other
         assert not df_scores_1.equals(df_scores_2)
@@ -167,7 +167,7 @@ class TestCompute:
                               'user deprivation potential (deprivation-weighted water consumption)')]
         df_scores, _ = calculate_scores(activities,
                                               impact_categories, )
-        assert (df_scores["value_0"] >= 0).all()
+        assert (df_scores["value"] >= 0).all()
 
     def test_calculate_scores_no_activities(self):
         activities = []
