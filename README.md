@@ -1,6 +1,6 @@
 # lcatoolbox
 
-![Python](https://img.shields.io/badge/python-3.13-blue.svg)
+![Python](https://img.shields.io/badge/python-3.12|3.13-blue.svg)
 
 A package that builds on top of the brightway framework to perform Life Cycle Assessment. Specifically, this package 
 enables taking into consideration the uncertainty of both foreground and background processes in an LCA model. These
@@ -10,7 +10,7 @@ overall uncertainty can be analysed using uncertainty apportioning.
 This package was introduced at Brightcon 2026.
 
 ## Requirements
-- Python 3.13 (not tested with earlier versions)
+- Python 3.12, 3.13
 - brightway25
 - numpy
 - pyexcel
