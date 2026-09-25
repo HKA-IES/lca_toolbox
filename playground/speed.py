@@ -16,7 +16,9 @@ foreground.register()
 #activities = import_foreground("../tests/test_import_foreground.ods")
 impact_categories = get_impact_categories("EF v3.1")
 
-act = bd.get_activity(name="kiwi production", location="GLO")
-act_copy = copy_ecoinvent_activity(act)
+act_1 = bd.get_activity(name="kiwi production", location="GLO")
+act_2 = bd.get_activity(name="integrated circuit production, logic type", location="GLO")
+act_1_copy = copy_ecoinvent_activity(act_1)
+act_2_copy = copy_ecoinvent_activity(act_2)
 
-scores, background, parameters = run_monte_carlo([act_copy], impact_categories, 10)
+scores, background, parameters = run_monte_carlo([act_1_copy, act_2_copy], impact_categories, 10)

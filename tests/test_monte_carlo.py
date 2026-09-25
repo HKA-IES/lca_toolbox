@@ -117,6 +117,20 @@ class TestMonteCarlo:
         assert len(df_scores) == len(imported_activities) * len(impact_categories)
         assert len(df_scores["values"][0]) == 1
 
+    def test_monte_carlo_no_background(self, imported_activities):
+        impact_categories = [('ecoinvent-3.12', 'EF v3.1', 'acidification', 'accumulated exceedance (AE)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'climate change', 'global warming potential (GWP100)'),
+                             ('ecoinvent-3.12', 'EF v3.1', 'water use',
+                              'user deprivation potential (deprivation-weighted water consumption)')]
+        n_iterations = 1
+        df_scores, df_scores_background, _ = run_monte_carlo(activities=imported_activities,
+                                                             impact_categories=impact_categories,
+                                                             n_iterations=n_iterations,
+                                                             background_contributions=False)
+
+        assert len(df_scores) == len(imported_activities) * len(impact_categories)
+        assert df_scores_background is None
+
 
     def test_discernibility_analysis(self):
         scores = [{"activity": "act_0", "impact_category": "ic_0",

@@ -21,7 +21,8 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
                     impact_categories: List[ImpactCategoryTuple],
                     n_iterations: int,
                     foreground_db_name: str = "foreground",
-                    progress_bar: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+                    progress_bar: bool = True,
+                    background_contributions: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # TODO: Handle n_jobs > 1
     n_iterations = int(n_iterations)
     if n_iterations < 1:
@@ -36,9 +37,10 @@ def run_monte_carlo(activities: List[bd.backends.proxies.Activity],
             else:
                 background_activities.append(exc.input)
         return background_activities
-    for act in activities:
-        background_activities += get_background_activities(act, foreground_db_name)
-    background_activities = list(set(background_activities))
+    if background_contributions:
+        for act in activities:
+            background_activities += get_background_activities(act, foreground_db_name)
+        background_activities = list(set(background_activities))
 
     # We instantiate one sampler for all df_parameters to save time on initiating the sampler and generating samples.
     project_params = [p for p in ProjectParameter.select() if p.formula is None]
