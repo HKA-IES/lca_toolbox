@@ -63,7 +63,6 @@ def calculate_scores(activities: List[bd.backends.proxies.Activity],
 
         Group.get(name="project").expire()
         bd.parameters.recalculate()
-        ActivityParameter.recalculate_exchanges("group")
 
     demands = {}
     for act in activities:
