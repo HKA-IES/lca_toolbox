@@ -5,6 +5,7 @@ from typing import Tuple, List, Dict
 import ast
 import itertools
 from copy import deepcopy
+import math
 
 # import third-party modules
 import bw2data as bd
@@ -157,8 +158,13 @@ def import_foreground(file_path: str,
                 amount = 1
                 formula = row["Amount"]
 
+            if isinstance(row["Group"], str):
+                group = row["Group"]
+            else:
+                group = None
+
             _create_exchange(parent_act=act, provider_act=exc_act, type_=exc_type,
-                             amount=amount, unit=row["Unit"], group=row["Group"],
+                             amount=amount, unit=row["Unit"], group=group,
                              uncertainty_type=UNCERTAINTY_TYPES_MAP[row["Uncertainty Type"]],
                              uncertainty_location=row["Uncertainty Location"],
                              uncertainty_scale=row["Uncertainty Scale"],
