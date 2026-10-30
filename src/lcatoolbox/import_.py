@@ -83,6 +83,7 @@ def import_foreground(file_path: str,
 
         df_params = pd.read_excel(file_path,
                            sheet_name=ws.name)
+        df_params.columns = [c.replace("\n", "") for c in df_params.columns]
 
         for _, row in df_params.iterrows():
             param = {"name": row["Name"]}
@@ -125,6 +126,7 @@ def import_foreground(file_path: str,
         df_exchanges["Product"] = df_exchanges["Product"].fillna("")
         df_exchanges["Location"] = df_exchanges["Location"].fillna("")
         df_exchanges["Categories"] = df_exchanges["Categories"].fillna("")
+        df_exchanges.columns = [c.replace("\n", "") for c in df_exchanges.columns]
 
         for _, row in df_exchanges.iterrows():
             activity_search_args = {"name": row["Activity"]}
