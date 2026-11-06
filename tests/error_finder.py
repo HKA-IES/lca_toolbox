@@ -13,7 +13,7 @@ import stats_arrays
 import bw2calc as bc
 
 # import your own module
-import lcatoolbox
+import laguna
 
 if __name__ == "__main__":
     """
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     foreground.register()
 
     ecoinvent = bd.Database("ecoinvent-3.12-cutoff")
-    impact_categories = lcatoolbox.get_impact_categories("EF v3.1")
+    impact_categories = laguna.get_impact_categories("EF v3.1")
 
     n_activities = len(ecoinvent)
 
@@ -56,12 +56,12 @@ if __name__ == "__main__":
         foreground.register()
 
         # Original activity
-        scores, parameters = lcatoolbox.calculate_scores([act], impact_categories)
-        mc_scores, mc_scores_background, mc_parameters = lcatoolbox.run_monte_carlo([act], impact_categories, 1, progress_bar=False)
-        # contributions = lcatoolbox.contributions_tree(act, 1, impact_categories[0], max_depth=1)
+        scores, parameters = laguna.calculate_scores([act], impact_categories)
+        mc_scores, mc_scores_background, mc_parameters = laguna.run_monte_carlo([act], impact_categories, 1, progress_bar=False)
+        # contributions = laguna.contributions_tree(act, 1, impact_categories[0], max_depth=1)
 
         # Copy
-        act_copy = lcatoolbox.copy_ecoinvent_activity(act)
-        scores_copy, parameters_copy = lcatoolbox.calculate_scores([act_copy], impact_categories)
-        mc_scores_copy, mc_scores_background_copy, mc_parameters_copy = lcatoolbox.run_monte_carlo([act_copy], impact_categories, 1, progress_bar=False)
-        # contributions_copy = lcatoolbox.contributions_tree(act_copy, 1, impact_categories[0], max_depth=1)
+        act_copy = laguna.copy_ecoinvent_activity(act)
+        scores_copy, parameters_copy = laguna.calculate_scores([act_copy], impact_categories)
+        mc_scores_copy, mc_scores_background_copy, mc_parameters_copy = laguna.run_monte_carlo([act_copy], impact_categories, 1, progress_bar=False)
+        # contributions_copy = laguna.contributions_tree(act_copy, 1, impact_categories[0], max_depth=1)

@@ -6,7 +6,7 @@
 import pytest
 
 # import your own module
-from lcatoolbox import get_exchange
+from laguna import get_exchange
 from setup_bw_project import setup_brightway, imported_activities
 
 class TestUtils:

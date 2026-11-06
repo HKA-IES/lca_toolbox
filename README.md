@@ -1,13 +1,15 @@
-# lcatoolbox
+# LAGUNA: Leveraging AGgregated rankings from Uncertainty Apportioning to accelerate life cycle inventory data collection
 
 ![Python](https://img.shields.io/badge/python-3.12|3.13-blue.svg)
 
-A package that builds on top of the brightway framework to perform Life Cycle Assessment. Specifically, this package 
-enables taking into consideration the uncertainty of both foreground and background processes in an LCA model. These
-uncertainties can be characterised using an uncertainty analysis, and the contribution of each input factor to the 
-overall uncertainty can be analysed using uncertainty apportioning.
+This package implements the LAGUNA method, which leverages uncertainty apportioning to accelerate life cycle inventory 
+data collection. Specifically, a foreground database is defined in a spreadhsheet and imported using the package. Then, 
+an uncertainty apportioning and a discernibility analysis are conducted to determine which input factors contribute most
+to the indiscernibility of the life cycle assessment. Since input factors are ranked distinctly for each impact 
+category, we aggregated the rankings based on the discernibility of each impact category. This yields a single ranking
+which can be used to determine which input factors to refine in priority.
 
-This package was introduced at Brightcon 2026.
+This package is introduced in a scientific article currently being reviewed.
 
 ## Requirements
 - Python 3.12, 3.13
@@ -22,7 +24,7 @@ This package was introduced at Brightcon 2026.
 ## Install it from the repository
 
 ```
-pip install git+https://github.com/HKA-IES/lca_toolbox
+pip install git+https://github.com/HKA-IES/laguna_lca
 ```
 
 ## Usage

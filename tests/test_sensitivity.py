@@ -9,7 +9,7 @@ import numpy as np
 import bw2calc as bc
 
 # import your own module
-from lcatoolbox import (uncertainty_apportioning, local_sensitivity_analysis, activity_string, SobolSaltelliMethod,
+from laguna import (uncertainty_apportioning, local_sensitivity_analysis, activity_string, SobolSaltelliMethod,
                         SobolLi2016Method, FASTMethod, RBDFASTMethod, PAWNMethod, DeltaMomentIndependentMethod,
                         SpearmanRankCorrelationMethod, GradientBoostingMethod, RegressionMethod,
                         aggregate_uncertainty_apportioning_results)

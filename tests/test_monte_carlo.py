@@ -8,7 +8,7 @@ from bw2data.parameters import ProjectParameter
 import pandas as pd
 
 # import your own module
-from lcatoolbox import run_monte_carlo, discernibility_analysis, activity_string
+from laguna import run_monte_carlo, discernibility_analysis, activity_string
 from setup_bw_project import imported_activities, setup_brightway
 
 class TestMonteCarlo:
