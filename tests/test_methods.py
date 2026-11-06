@@ -5,7 +5,7 @@
 # import third-party modules
 
 # import your own module
-from lcatoolbox import get_impact_categories
+from laguna import get_impact_categories
 from setup_bw_project import setup_brightway
 
 class TestMethods:

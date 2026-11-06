@@ -1,6 +1,6 @@
 import bw2data as bd
 from bw2data.parameters import ProjectParameter
-from lcatoolbox import run_monte_carlo, import_foreground, get_impact_categories, copy_ecoinvent_activity
+from laguna import run_monte_carlo, import_foreground, get_impact_categories, copy_ecoinvent_activity
 
 bd.projects.set_current("lca_toolbox_tests")
 

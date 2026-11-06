@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lcatoolbox"
+name = "laguna"
 version = "0.1.0"
 authors = [{name = "Jonathan Larochelle", email = "jonathan.larochelle@h-ka.de"}, ]
 description = "(...)"
@@ -35,8 +35,8 @@ test = [
 [tool.setuptools]
 include-package-data = true
 package-dir = {"" = "src"}
-packages = ["lcatoolbox"]
+packages = ["laguna"]
 
 [project.urls]
-Homepage = "https://github.com/HKA-IES/lca_toolbox"
-Issues = "https://github.com/HKA-IES/lca_toolbox/issues"
+Homepage = "https://github.com/HKA-IES/laguna_lca"
+Issues = "https://github.com/HKA-IES/laguna_lca/issues"

@@ -8,7 +8,7 @@ from bw2data.parameters import ProjectParameter
 import pytest
 
 # import your own module
-from lcatoolbox import calculate_scores, activity_string
+from laguna import calculate_scores, activity_string
 from setup_bw_project import setup_brightway, imported_activities
 
 class TestCompute:

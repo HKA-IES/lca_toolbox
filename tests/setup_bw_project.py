@@ -11,7 +11,7 @@ from bw2data.parameters import ActivityParameter, ProjectParameter
 import pytest
 
 # import your own module
-from lcatoolbox import import_foreground, apply_openlca_preprocessing_to_ecoinvent
+from laguna import import_foreground, apply_openlca_preprocessing_to_ecoinvent
 
 
 @pytest.fixture(scope="function", autouse=True)

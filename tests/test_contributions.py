@@ -8,7 +8,7 @@ import pytest
 import bw2calc as bc
 
 # import your own module
-from lcatoolbox import contributions_tree, grouped_contributions, calculate_scores
+from laguna import contributions_tree, grouped_contributions, calculate_scores
 from setup_bw_project import setup_brightway, fruit_salad
 
 class TestContributions:
